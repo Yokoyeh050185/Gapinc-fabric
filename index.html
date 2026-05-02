@@ -221,11 +221,9 @@ RD{actual_rd} {actual_name}, {actual_comp}, {actual_weight}
 <tr><td>5b</td><td>Group A Fallback</td><td>Cotton↔Polyester↔Rayon (when &lt;5 results)</td><td><span class="bdg bh">Relaxed</span></td></tr>
 </tbody></table></div>
 <div class="cd"><h3>Data Sync</h3>
-<p style="font-size:.85em;color:var(--t2);margin-bottom:10px">For GitHub Pages: upload this HTML as <b>index.html</b> and upload shared data as <b>fabric-data.json</b>. Team members only need to open the website; Knit / Woven / Denim data will auto-load.</p>
 <div class="bg">
-<button class="btn bp" onclick="exShared()">Export fabric-data.json</button>
-<button class="btn bs" onclick="exAll()">Export Backup (JSON)</button>
-<button class="btn bs" onclick="document.getElementById('iaf').click()">Import JSON</button>
+<button class="btn bp" onclick="exAll()">Export All (JSON)</button>
+<button class="btn bs" onclick="document.getElementById('iaf').click()">Import All (JSON)</button>
 <input type="file" id="iaf" accept=".json" style="display:none" onchange="imAll(event)">
 </div></div>
 </div></div>
@@ -463,24 +461,63 @@ navigator.clipboard.writeText(updatedCmt).catch(function(){var a=document.create
 toast('Comment copied with Actual info! Fill Season to save.','var(--bl)');
 }
 
-var DATA_FILE='fabric-data.json';
-function applyData(d,fromRemote){
-if(!d)return;
-if(d.fi)FI=d.fi;
-if(d.hist)hist=d.hist;
-if(d.tpl){document.getElementById('tA').value=d.tpl.a||document.getElementById('tA').value;document.getElementById('tS').value=d.tpl.s||document.getElementById('tS').value;}
-if(fromRemote){try{localStorage.setItem('gfi_cache',JSON.stringify(FI));localStorage.setItem('ghi_cache',JSON.stringify(hist));localStorage.setItem('gtl_cache',JSON.stringify({a:document.getElementById('tA').value,s:document.getElementById('tS').value}));}catch(e){}}
+function loadLocalPrefs(){
+  try{
+    var h=localStorage.getItem('ghi');
+    if(h) hist=JSON.parse(h);
+    var t=localStorage.getItem('gtl');
+    if(t){
+      var o=JSON.parse(t);
+      document.getElementById('tA').value=o.a||document.getElementById('tA').value;
+      document.getElementById('tS').value=o.s||document.getElementById('tS').value;
+    }
+  }catch(e){console.warn('Local prefs load failed',e);}
+}
+function applyFabricData(data){
+  /* Support both formats:
+     1) {knit:[], woven:[], denim:[]}
+     2) {fi:{knit:[], woven:[], denim:[]}}
+  */
+  var src=data&&data.fi?data.fi:data;
+  if(!src) return false;
+  FI={
+    knit:Array.isArray(src.knit)?src.knit:[],
+    woven:Array.isArray(src.woven)?src.woven:[],
+    denim:Array.isArray(src.denim)?src.denim:[]
+  };
+  return true;
+}
+function renderAfterDataLoad(){
+  upSt();
+  renH();
+  showFI('knit');
 }
 function init(){
-try{
-  var h=localStorage.getItem('ghi');if(h)hist=JSON.parse(h); // each user can still keep their own history locally
-  var t=localStorage.getItem('gtl');if(t){var o=JSON.parse(t);document.getElementById('tA').value=o.a||document.getElementById('tA').value;document.getElementById('tS').value=o.s||document.getElementById('tS').value;}
-}catch(e){}
-upSt();renH();showFI('knit');
-fetch(DATA_FILE+'?v='+Date.now(),{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('No shared data file');return r.json();}).then(function(d){applyData(d,true);upSt();renH();showFI('knit');toast('Shared fabric data loaded');}).catch(function(){
-  try{var cf=localStorage.getItem('gfi_cache')||localStorage.getItem('gfi');if(cf)FI=JSON.parse(cf);var ch=localStorage.getItem('ghi_cache');if(ch&&!hist.length)hist=JSON.parse(ch);var ct=localStorage.getItem('gtl_cache');if(ct){var co=JSON.parse(ct);document.getElementById('tA').value=co.a||document.getElementById('tA').value;document.getElementById('tS').value=co.s||document.getElementById('tS').value;}}catch(e){}
-  upSt();renH();showFI('knit');
-});
+  loadLocalPrefs();
+
+  /* GitHub Pages auto data load.
+     Put fabric-data.json in the same folder as index.html.
+     The timestamp avoids browser cache when you update seasonal data. */
+  fetch('./fabric-data.json?v='+Date.now(),{cache:'no-store'})
+    .then(function(res){
+      if(!res.ok) throw new Error('HTTP '+res.status);
+      return res.json();
+    })
+    .then(function(data){
+      if(!applyFabricData(data)) throw new Error('Invalid fabric-data.json format');
+      renderAfterDataLoad();
+      console.log('fabric-data.json loaded',FI);
+      toast('Fabric data loaded: Knit '+FI.knit.length+', Woven '+FI.woven.length+', Denim '+FI.denim.length);
+    })
+    .catch(function(err){
+      console.warn('fabric-data.json load failed, fallback to localStorage',err);
+      try{
+        var f=localStorage.getItem('gfi');
+        if(f) applyFabricData(JSON.parse(f));
+      }catch(e){console.warn('Local FI fallback failed',e);}
+      renderAfterDataLoad();
+      toast('fabric-data.json not loaded. Check filename/location.','var(--or)');
+    });
 }
 function save(){try{localStorage.setItem('gfi',JSON.stringify(FI));localStorage.setItem('ghi',JSON.stringify(hist));}catch(e){}}
 function upSt(){document.getElementById('sK').textContent=FI.knit.length;document.getElementById('sW').textContent=FI.woven.length;document.getElementById('sD').textContent=FI.denim.length;document.getElementById('sH').textContent=hist.length;}
@@ -698,9 +735,8 @@ function exB(){var rows=BD.res.map(function(r){var j=r.status==='actual'?'Actual
 function cpAll(){var cmts=BD.res.map(function(r){var cm='';if(r.status==='actual'&&r.match)cm=genC('a',r.match);else if(r.status==='history'&&r.hm)cm=genC('s',{rd:r.hm.sr,name:r.hm.sd,comp:'',wt:'',sub:''});else if(r.recs.length>0)cm=genC('s',r.recs[0]);return r.st+': '+cm;}).join('\n\n');navigator.clipboard.writeText(cmts).then(function(){toast('All copied!');});}
 
 /* ═══ Data Sync ═══ */
-function exShared(){dlJ({fi:FI,hist:hist,tpl:{a:document.getElementById('tA').value,s:document.getElementById('tS').value},updatedAt:new Date().toISOString(),note:'Upload this file to GitHub with the exact filename fabric-data.json'},'fabric-data.json');}
-function exAll(){dlJ({fi:FI,hist:hist,tpl:{a:document.getElementById('tA').value,s:document.getElementById('tS').value},dt:new Date().toISOString()},'GIS_FDT_Backup_'+new Date().toISOString().split('T')[0]+'.json');}
-function imAll(e){var f=e.target.files[0];if(!f)return;var r=new FileReader();r.onload=function(ev){try{var d=JSON.parse(ev.target.result);applyData(d,false);save();upSt();renH();showFI('knit');toast('Imported! Export fabric-data.json when ready.');}catch(er){toast('Failed','var(--rd)');}};r.readAsText(f);e.target.value='';}
+function exAll(){dlJ({fi:FI,hist:hist,tpl:{a:document.getElementById('tA').value,s:document.getElementById('tS').value},dt:new Date().toISOString()},'GIS_FDT_All_'+new Date().toISOString().split('T')[0]+'.json');}
+function imAll(e){var f=e.target.files[0];if(!f)return;var r=new FileReader();r.onload=function(ev){try{var d=JSON.parse(ev.target.result);if(d.fi)FI=d.fi;if(d.hist)hist=d.hist;if(d.tpl){document.getElementById('tA').value=d.tpl.a||'';document.getElementById('tS').value=d.tpl.s||'';}save();upSt();renH();showFI('knit');toast('Imported!');}catch(er){toast('Failed','var(--rd)');}};r.readAsText(f);e.target.value='';}
 function dlJ(d,fn){var b=new Blob([JSON.stringify(d,null,2)],{type:'application/json'});var a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=fn;a.click();}
 
 /* ═══ Init ═══ */
