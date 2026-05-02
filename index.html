@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>GIS FDT v4</title>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#faf7f2;
+  --cd:#ffffff;
+  --hd:#f5f0e8;
+  --ac:#3d8c5e;
+  --tx:#2c2416;
+  --t2:#7a6a55;
+  --bd:#e0d8cc;
+  --gn:#2e7d52;
+  --bl:#2e6da8;
+  --or:#c25c20;
+  --rd:#b83232;
+}
+body{font-family:'Segoe UI','Microsoft JhengHei',sans-serif;background:var(--bg);color:var(--tx);min-height:100vh}
+.hdr{background:var(--hd);padding:12px 24px;display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid var(--bd);position:sticky;top:0;z-index:100;box-shadow:0 1px 4px rgba(100,80,50,.08)}
+.hdr h1{font-size:1.3em;color:var(--tx)}.hdr h1 em{color:var(--ac);font-style:normal;font-size:.75em;margin-left:8px}
+.sts{display:flex;gap:10px;font-size:.8em}.sts span{background:var(--bd);padding:3px 10px;border-radius:8px;color:var(--t2)}.sts b{color:var(--ac)}
+.mt{display:flex;background:var(--cd);border-bottom:2px solid var(--bd);padding:0 16px}
+.mt button{padding:12px 24px;border:none;background:none;color:var(--t2);font-size:.95em;cursor:pointer;border-bottom:3px solid transparent;transition:.2s}
+.mt button:hover{color:var(--tx)}.mt button.a{color:var(--ac);border-bottom-color:var(--ac);background:rgba(61,140,94,.06)}
+.ct{padding:20px;max-width:1400px;margin:0 auto}
+.tp{display:none}.tp.a{display:block}
+.st{display:flex;gap:4px;margin-bottom:16px;background:var(--hd);padding:6px;border-radius:10px;width:fit-content;border:1px solid var(--bd)}
+.st button{padding:8px 18px;border:none;background:none;color:var(--t2);border-radius:8px;font-size:.9em;cursor:pointer;transition:.2s}
+.st button.a{background:var(--ac);color:#fff}
+.cd{background:var(--cd);border-radius:12px;padding:20px;margin-bottom:16px;border:1px solid var(--bd);box-shadow:0 1px 4px rgba(100,80,50,.06)}
+.cd h3{margin-bottom:12px;color:var(--ac);font-size:1.05em}
+.fr{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px;align-items:flex-end}
+.fg{display:flex;flex-direction:column;gap:4px;flex:1;min-width:150px}.fg label{font-size:.8em;color:var(--t2)}
+input,select,textarea{background:var(--bg);border:1px solid var(--bd);color:var(--tx);padding:8px 12px;border-radius:6px;font-size:.9em;outline:none;transition:.2s}
+input:focus,select:focus,textarea:focus{border-color:var(--ac);box-shadow:0 0 0 3px rgba(61,140,94,.12)}
+textarea{resize:vertical;min-height:60px;font-family:monospace}
+.btn{padding:8px 18px;border:none;border-radius:6px;cursor:pointer;font-size:.85em;transition:.2s;display:inline-flex;align-items:center;gap:6px}
+.bp{background:var(--ac);color:#fff}.bp:hover{background:#2e7d52}
+.bs{background:var(--hd);color:var(--tx);border:1px solid var(--bd)}.bs:hover{background:var(--bd)}
+.br{background:var(--rd);color:#fff}.bsm{padding:4px 10px;font-size:.78em}
+.bg{display:flex;gap:8px;flex-wrap:wrap}
+table.dt{width:100%;border-collapse:collapse;font-size:.85em}
+table.dt th{background:var(--hd);padding:8px 10px;text-align:left;font-weight:600;position:sticky;top:0;white-space:nowrap;cursor:default;color:var(--t2);border-bottom:2px solid var(--bd)}
+table.dt td{padding:7px 10px;border-bottom:1px solid var(--bd);color:var(--tx)}
+table.dt tr:hover td{background:rgba(61,140,94,.05)}
+.bdg{padding:2px 8px;border-radius:10px;font-size:.75em;font-weight:600;display:inline-block}
+.ba{background:rgba(46,125,82,.12);color:#1e5c38}.bh{background:rgba(46,109,168,.12);color:#1a4a7a}.bo{background:rgba(194,92,32,.12);color:#8a3a10}.bb{background:var(--hd);color:var(--t2)}
+.sb{width:100%;padding:14px 20px;font-size:1.1em;border-radius:12px;background:var(--cd);border:2px solid var(--bd);color:var(--tx);margin-bottom:8px}.sb:focus{border-color:var(--ac);box-shadow:0 0 0 3px rgba(61,140,94,.12)}
+.mcs{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin:16px 0}
+.mc{background:var(--cd);border-radius:12px;padding:16px;text-align:center;border:1px solid var(--bd);box-shadow:0 1px 3px rgba(100,80,50,.06)}
+.mc .n{font-size:2em;font-weight:700}.mc .l{font-size:.8em;color:var(--t2);margin-top:4px}
+.mc.ga .n{color:var(--gn)}.mc.gh .n{color:var(--bl)}.mc.go .n{color:var(--or)}
+.dz{border:2px dashed var(--bd);border-radius:12px;padding:40px;text-align:center;cursor:pointer;transition:.2s;color:var(--t2);background:var(--cd)}.dz:hover{border-color:var(--ac);background:rgba(61,140,94,.04)}
+.sbar{display:flex;gap:4px;margin-bottom:20px}
+.sbar div{flex:1;text-align:center;padding:10px;background:var(--cd);border-radius:8px;border:1px solid var(--bd);font-size:.85em;color:var(--t2)}
+.sbar div.a{border-color:var(--ac);color:var(--ac);background:rgba(61,140,94,.08)}.sbar div.d{border-color:var(--gn);color:var(--gn);background:rgba(46,125,82,.06)}
+.sp{display:none}.sp.a{display:block}
+.mo{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(44,36,22,.45);z-index:200;align-items:center;justify-content:center}.mo.sh{display:flex}
+.md{background:var(--cd);border-radius:12px;padding:24px;width:90%;max-width:600px;max-height:80vh;overflow-y:auto;border:1px solid var(--bd);box-shadow:0 8px 32px rgba(44,36,22,.14)}.md h3{margin-bottom:16px;color:var(--ac)}
+.toast{position:fixed;bottom:20px;right:20px;background:var(--gn);color:#fff;padding:12px 20px;border-radius:8px;display:none;z-index:300;box-shadow:0 4px 12px rgba(46,125,82,.3)}
+.stbl{max-height:600px;overflow-y:auto}.emp{text-align:center;padding:40px;color:var(--t2)}
+.tg{display:inline-block;background:rgba(61,140,94,.1);color:var(--ac);padding:2px 8px;border-radius:4px;font-size:.78em;margin:2px}
+.detail-row{background:#f7f3ed!important}.detail-row td{padding:12px 16px!important;border-left:3px solid var(--ac)}
+.sub-tbl{width:100%;border-collapse:collapse;font-size:.82em;margin-top:8px}
+.sub-tbl th{background:var(--hd);padding:6px 8px;text-align:left;color:var(--ac);font-size:.85em;white-space:nowrap;border-bottom:2px solid var(--bd)}
+.sub-tbl td{padding:5px 8px;border-bottom:1px solid var(--bd);color:var(--tx)}
+.sub-tbl tr:hover td{background:rgba(61,140,94,.06)}
+.sub-tbl tr.sel td{background:rgba(61,140,94,.12)!important;border-left:3px solid var(--ac)}
+.score-bar{display:inline-block;height:6px;border-radius:3px;background:var(--ac);vertical-align:middle;margin-left:4px}
+[contenteditable]{outline:none;min-width:30px;padding:2px 4px;border-radius:3px;transition:.2s}
+focus{background:rgba(61,140,94,.1);box-shadow:0 0 0 2px var(--ac)}
+.fi-tab{padding:6px 14px;border:none;border-radius:6px;cursor:pointer;font-size:.8em;transition:.2s;color:var(--t2);background:var(--hd);border:1px solid var(--bd)}.fi-tab.a{background:var(--ac);color:#fff;border-color:var(--ac)}
+.th-f{display:inline-flex;align-items:center;gap:4px}
+.th-f .fb{background:none;border:none;color:var(--t2);cursor:pointer;font-size:.7em;padding:2px 4px;border-radius:3px;transition:.2s;line-height:1}
+.th-f .fb:hover{color:var(--ac);background:rgba(61,140,94,.1)}
+.th-f .fb.act{color:var(--ac)}
+.fp{position:fixed;background:var(--cd);border:1px solid var(--bd);border-radius:10px;padding:12px;min-width:200px;max-width:280px;max-height:350px;overflow-y:auto;z-index:500;box-shadow:0 8px 24px rgba(44,36,22,.14);display:none;font-size:.82em}
+.fp .fp-sort{display:flex;gap:4px;margin-bottom:8px}
+.fp .fp-sort button{flex:1;padding:5px 8px;border:1px solid var(--bd);background:var(--bg);color:var(--tx);border-radius:4px;cursor:pointer;font-size:.85em}
+.fp .fp-sort button:hover{border-color:var(--ac);color:var(--ac)}
+.fp .fp-sort button.a{background:var(--ac);color:#fff;border-color:var(--ac)}
+.fp input[type=text],.fp input[type=number]{width:100%;padding:5px 8px;margin-bottom:6px;font-size:.9em}
+.fp .fp-cbs{max-height:160px;overflow-y:auto;margin:6px 0}
+.fp .fp-cbs label{display:flex;align-items:center;gap:6px;padding:3px 0;cursor:pointer;font-size:.88em}
+.fp .fp-cbs input[type=checkbox]{accent-color:var(--ac);width:14px;height:14px}
+.fp .fp-acts{display:flex;gap:6px;margin-top:8px}
+.fp .fp-acts button{flex:1;padding:5px;border:none;border-radius:4px;cursor:pointer;font-size:.85em}
+.fp .fp-num{display:flex;gap:6px;margin-bottom:6px}
+.fp .fp-num input{width:50%;padding:5px 6px}
+::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:var(--bd);border-radius:3px}::-webkit-scrollbar-thumb:hover{background:#c8bfb0}
+@media(max-width:768px){.fr{flex-direction:column}.mcs{grid-template-columns:1fr}.hdr{flex-direction:column;gap:8px}}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+<h1>GIS FDT <em>v4.0</em></h1>
+<div class="sts">
+<span>Knit:<b id="sK">0</b></span><span>Woven:<b id="sW">0</b></span><span>Denim:<b id="sD">0</b></span><span>History:<b id="sH">0</b></span>
+</div></div>
+<div class="mt" id="mtabs">
+<button class="a" onclick="sw(0)">Query</button><button onclick="sw(1)">Batch</button><button onclick="sw(2)">Settings</button>
+</div>
+<div class="ct">
+<div class="tp a" id="p0">
+<div class="st" id="stabs">
+<button class="a" onclick="ss(0)">Search</button><button onclick="ss(1)">History</button><button onclick="ss(2)">Recommend</button>
+</div>
+<div class="tp a" id="s0">
+<input class="sb" id="qi" placeholder="RD / Style# / fabric text..." onkeydown="if(event.key==='Enter')doS()">
+<div style="font-size:.8em;color:var(--t2);margin-bottom:12px">Supports RD / Style# / composition text</div>
+<div class="bg" style="margin-bottom:16px"><button class="btn bp" onclick="doS()">Search</button><button class="btn bs" onclick="clrS()">Clear</button></div>
+<div id="sr"></div>
+</div>
+<div class="tp" id="s1">
+<div class="bg" style="margin-bottom:12px">
+<button class="btn bp" onclick="shMo()">+ New</button><button class="btn bs" onclick="exH()">Export CSV</button>
+<button class="btn bs" onclick="document.getElementById('ihf').click()">Import CSV</button>
+<input type="file" id="ihf" accept=".csv" style="display:none" onchange="imH(event)">
+</div>
+<input style="width:100%;padding:8px 12px;margin-bottom:12px;border-radius:6px;background:var(--bg);border:1px solid var(--bd);color:var(--tx)" id="hq" placeholder="Search history..." oninput="renH()">
+<div class="stbl" id="ht"></div>
+</div>
+<div class="tp" id="s2">
+<div class="cd"><h3>Filter</h3>
+<div class="fr">
+<div class="fg"><label>Type</label><select id="rT"><option value="">All</option><option>Knit</option><option>Woven</option><option>Denim</option></select></div>
+<div class="fg"><label>Subtype</label><input id="rSt" placeholder="Interlock, Jersey..."></div>
+<div class="fg"><label>Weight Min</label><input id="rWn" type="number" placeholder="g/m2"></div>
+<div class="fg"><label>Weight Max</label><input id="rWx" type="number" placeholder="g/m2"></div>
+</div>
+<div class="fr">
+<div class="fg"><label>Composition</label><input id="rC" placeholder="Cotton, Polyester..."></div>
+<div class="fg"><label>Spandex</label><select id="rSp"><option value="">Any</option><option value="y">Yes</option><option value="n">No</option></select></div>
+<div class="fg"><label>Brand</label><select id="rB"><option value="">All</option><option>Old Navy</option><option>Gap</option><option>Athleta</option><option>Banana Republic</option><option>BRFS</option><option>GO</option></select></div>
+<div class="fg"><label>&nbsp;</label><button class="btn bp" onclick="doR()">Search</button></div>
+</div></div>
+<div id="rr"></div>
+</div></div>
+<div class="tp" id="p1">
+<div class="sbar"><div class="a" id="sl0">1. Upload</div><div id="sl1">2. Map</div><div id="sl2">3. Results</div><div id="sl3">4. Export</div></div>
+<div class="sp a" id="bs0">
+<div class="dz" id="dzn" onclick="document.getElementById('bf').click()">
+<div style="font-size:2em;margin-bottom:8px">&#x1F4C1;</div><div>Click or drag Excel here</div>
+<input type="file" id="bf" accept=".xlsx,.xls" style="display:none" onchange="ldBF(event)">
+</div></div>
+<div class="sp" id="bs1">
+<div class="cd"><h3>Column Mapping</h3><div class="fr" id="ma"></div>
+<div class="bg" style="margin-top:12px"><button class="btn bp" onclick="doMap()">Confirm</button><button class="btn bs" onclick="gStp(0)">&#x2B05; Back</button></div></div>
+</div>
+<div class="sp" id="bs2">
+<div class="mcs">
+<div class="mc ga"><div class="n" id="bA">0</div><div class="l">Actual</div></div>
+<div class="mc gh"><div class="n" id="bH">0</div><div class="l">History Sub</div></div>
+<div class="mc go"><div class="n" id="bR">0</div><div class="l">Need Rec</div></div>
+</div>
+<div class="cd"><h3>Results</h3>
+<div class="bg" style="margin-bottom:8px">
+<button class="btn bsm bs" onclick="fltB('all')">All</button>
+<button class="btn bsm bp" onclick="fltB('actual')">Actual</button>
+<button class="btn bsm" style="background:var(--bl);color:#fff" onclick="fltB('history')">History</button>
+<button class="btn bsm" style="background:var(--or);color:#fff" onclick="fltB('recommend')">Recommend</button>
+</div>
+<div class="stbl" id="bres"></div></div>
+<div class="bg" style="margin-top:12px;justify-content:space-between"><button class="btn bs" onclick="gStp(1)">&#x2B05; Back</button><button class="btn bp" onclick="gStp(3)">Next &#x27A1;</button></div>
+</div>
+<div class="sp" id="bs3">
+<div class="cd"><h3>Export</h3>
+<div class="bg"><button class="btn bp" onclick="exB()">Export Excel</button><button class="btn bs" onclick="cpAll()">Copy All Comments</button></div></div>
+<div class="stbl" id="epv"></div>
+<div style="margin-top:12px"><button class="btn bs" onclick="gStp(2)">&#x2B05; Back</button></div>
+</div></div>
+<div class="tp" id="p2">
+<div class="cd"><h3>Fabric Index Upload</h3>
+<p style="font-size:.85em;color:var(--t2);margin-bottom:12px">Upload GAP INC Fabric Index Excel</p>
+<div class="fr">
+<div class="fg"><label>Knit</label><input type="file" id="fK" accept=".xlsx,.xls"><button class="btn bsm bp" style="margin-top:4px" onclick="ldFI('knit')">Load</button></div>
+<div class="fg"><label>Woven</label><input type="file" id="fW" accept=".xlsx,.xls"><button class="btn bsm bp" style="margin-top:4px" onclick="ldFI('woven')">Load</button></div>
+<div class="fg"><label>Denim</label><input type="file" id="fD" accept=".xlsx,.xls"><button class="btn bsm bp" style="margin-top:4px" onclick="ldFI('denim')">Load</button></div>
+</div></div>
+<div class="cd"><h3>Fabric Index Browser</h3>
+<div class="bg" style="margin-bottom:8px">
+<button class="fi-tab a" id="ftK" onclick="showFI('knit')">Knit (<span id="fcK">0</span>)</button>
+<button class="fi-tab" id="ftW" onclick="showFI('woven')">Woven (<span id="fcW">0</span>)</button>
+<button class="fi-tab" id="ftD" onclick="showFI('denim')">Denim (<span id="fcD">0</span>)</button>
+<button class="btn bsm bp" onclick="saveFI()">Save Changes</button>
+</div>
+<input style="width:100%;padding:8px 12px;margin-bottom:8px;border-radius:6px;background:var(--bg);border:1px solid var(--bd);color:var(--tx)" id="fiq" placeholder="Filter: RD / name / subtype / composition..." oninput="showFI(curFI)">
+<div class="stbl" id="fit" style="max-height:400px"></div>
+</div>
+<div class="cd"><h3>Comment Templates</h3>
+<div class="fg" style="margin-bottom:12px"><label>Actual</label>
+<textarea id="tA" rows="4">1. 3D Fabric/s
+ACTUAL FABRIC
+Fabric RD#{rd}
+2. 3D Tech: YokoYeh
+3. Measurement Chart Link</textarea></div>
+<div class="fg" style="margin-bottom:12px"><label>Substitute</label>
+<textarea id="tS" rows="8">1.3DFabric:
+*Used SUBSTITUTE FABRIC
+RD{rd} {fabric_name}, {composition}, {weight}gsm
+
+Actual FABRIC
+RD{actual_rd} {actual_name}, {actual_comp}, {actual_weight}
+2.3D tech:Yoko Yeh
+3.Measurements Chart Link</textarea></div>
+<p style="font-size:.8em;color:var(--t2);margin-bottom:8px">Variables: {rd} {fabric_name} {composition} {weight} {subtype} {actual_rd} {actual_name} {actual_comp} {actual_weight}</p>
+<button class="btn bp" onclick="svTpl()">Save</button></div>
+<div class="cd"><h3>SOP Rules (Priority Order)</h3>
+<table class="dt"><thead><tr><th>#</th><th>Rule</th><th>Logic</th><th>Type</th></tr></thead><tbody>
+<tr><td>1</td><td>Type</td><td>Knit→Knit, Woven→Woven, Denim→Denim</td><td><span class="bdg" style="background:rgba(231,76,60,.2);color:var(--rd)">Hard Filter</span></td></tr>
+<tr><td>2</td><td>Spandex</td><td>Must match</td><td><span class="bdg" style="background:rgba(231,76,60,.2);color:var(--rd)">Hard Filter</span></td></tr>
+<tr><td>3</td><td>Material Subtype</td><td>Same subtype preferred</td><td><span class="bdg bo">Score +40</span></td></tr>
+<tr><td>4</td><td>Weight</td><td>±15% range</td><td><span class="bdg bo">Score +30</span></td></tr>
+<tr><td>5</td><td>Composition</td><td>Primary fiber match, ±5%(w/ SP)/±10%(w/o SP) relative</td><td><span class="bdg bo">Score +45</span></td></tr>
+<tr><td>5b</td><td>Group A Fallback</td><td>Cotton↔Polyester↔Rayon (when &lt;5 results)</td><td><span class="bdg bh">Relaxed</span></td></tr>
+</tbody></table></div>
+<div class="cd"><h3>Data Sync</h3>
+<p style="font-size:.85em;color:var(--t2);margin-bottom:10px">For GitHub Pages: upload this HTML as <b>index.html</b> and upload shared data as <b>fabric-data.json</b>. Team members only need to open the website; Knit / Woven / Denim data will auto-load.</p>
+<div class="bg">
+<button class="btn bp" onclick="exShared()">Export fabric-data.json</button>
+<button class="btn bs" onclick="exAll()">Export Backup (JSON)</button>
+<button class="btn bs" onclick="document.getElementById('iaf').click()">Import JSON</button>
+<input type="file" id="iaf" accept=".json" style="display:none" onchange="imAll(event)">
+</div></div>
+</div></div>
+<div class="mo" id="mo"><div class="md">
+<h3 id="moT">New History Record</h3>
+<div class="fr"><div class="fg"><label>Style#</label><input id="mSt"></div><div class="fg"><label>Category</label><input id="mCa"></div></div>
+<div class="fr"><div class="fg"><label>Season</label><input id="mSe"></div><div class="fg"><label>Orig RD</label><input id="mOR"></div></div>
+<div class="fr"><div class="fg"><label>Orig Desc</label><input id="mOD"></div></div>
+<div class="fr"><div class="fg"><label>Sub RD</label><input id="mSR"></div><div class="fg"><label>Sub RD2</label><input id="mS2"></div></div>
+<div class="fr"><div class="fg"><label>Sub Desc</label><input id="mSD"></div></div>
+<div class="fr"><div class="fg"><label>Notes</label><input id="mNo"></div></div>
+<div class="bg" style="margin-top:16px"><button class="btn bp" onclick="svH()">Save</button><button class="btn bs" onclick="hiMo()">Cancel</button></div>
+</div></div>
+<div class="toast" id="tst"></div>
+<div class="fp" id="fpanel"></div>
+
+<script>
+var FI={knit:[],woven:[],denim:[]},hist=[],BD={mapped:[],res:[],wb:null,sn:[],_rows:null},eIdx=-1;
+var _cmts=[],curFI='knit';
+
+/* ═══ Filter/Sort Table System ═══ */
+var _tbl={};
+var _fpCtx=null,_fpCol=null;
+
+function regTbl(ctx,data,cols,renderTo,onAction){
+_tbl[ctx]={data:data,filtered:[].concat(data),sort:{col:null,dir:null},filters:{},cols:cols,renderTo:renderTo,onAction:onAction||null};
+renderFT(ctx);
+}
+function renderFT(ctx){
+var T=_tbl[ctx];if(!T)return;
+var d=applyTF(ctx);T.filtered=d;_cmts=[];
+var cols=T.cols;
+var h='<table class="dt"><thead><tr>';
+cols.forEach(function(c){
+var sortIco='';if(T.sort.col===c.key)sortIco=T.sort.dir==='asc'?' ↑':' ↓';
+var hasF=T.filters[c.key]?'act':'';
+h+='<th><span class="th-f">'+c.label+sortIco+'<button class="fb '+hasF+'" onclick="event.stopPropagation();openFP(\''+ctx+'\',\''+c.key+'\',this)">▼</button></span></th>';
+});
+if(T.onAction)h+='<th>Action</th>';
+h+='</tr></thead><tbody>';
+if(d.length===0)h+='<tr><td colspan="'+(cols.length+(T.onAction?1:0))+'" style="text-align:center;color:var(--t2);padding:20px">No results</td></tr>';
+d.forEach(function(r,i){
+var ci=_cmts.length;_cmts.push(genC('s',r));
+var bw=Math.min(Math.round((r.sc||0)*1.5),100);
+h+='<tr>';
+cols.forEach(function(c){
+if(c.key==='idx')h+='<td>'+(i+1)+'</td>';
+else if(c.key==='rd')h+='<td><b>'+r.rd+'</b></td>';
+else if(c.key==='brand')h+='<td><span class="bdg bb">'+(r.brand||'-')+'</span></td>';
+else if(c.key==='ty')h+='<td><span class="tg">'+r.ty+'</span></td>';
+else if(c.key==='sub')h+='<td>'+r.sub+'</td>';
+else if(c.key==='comp')h+='<td style="max-width:240px;font-size:.8em">'+r.comp+'</td>';
+else if(c.key==='wt')h+='<td>'+r.wt+'</td>';
+else if(c.key==='sc')h+='<td><b style="color:var(--ac)">'+(r.sc||0)+'</b><span class="score-bar" style="width:'+bw+'px"></span></td>';
+else h+='<td>'+(r[c.key]||'')+'</td>';
+});
+if(T.onAction){h+='<td><div class="bg"><button class="btn bsm bp" onclick="cpC('+ci+')">Copy</button><button class="btn bsm bs" onclick="addHist('+ci+',\''+ctx+'\','+i+')" title="Add to history">+</button></div></td>';}
+h+='</tr>';
+});
+h+='</tbody></table>';
+h='<p style="font-size:.82em;color:var(--t2);margin-bottom:6px">Showing '+d.length+' / '+T.data.length+'</p>'+h;
+document.getElementById(T.renderTo).innerHTML=h;
+}
+function applyTF(ctx){
+var T=_tbl[ctx];var d=[].concat(T.data);
+Object.keys(T.filters).forEach(function(col){
+var f=T.filters[col];if(!f)return;
+var c=T.cols.find(function(x){return x.key===col;});
+if(c&&c.type==='num'){
+if(f.min!==''&&f.min!==undefined)d=d.filter(function(r){return parseFloat(r[col])>=parseFloat(f.min);});
+if(f.max!==''&&f.max!==undefined)d=d.filter(function(r){return parseFloat(r[col])<=parseFloat(f.max);});
+}else{
+if(f.q)d=d.filter(function(r){return String(r[col]||'').toLowerCase().includes(f.q.toLowerCase());});
+if(f.vals&&f.vals.length>0)d=d.filter(function(r){return f.vals.includes(String(r[col]||''));});
+}
+});
+if(T.sort.col){
+var col=T.sort.col,dir=T.sort.dir;
+var c=T.cols.find(function(x){return x.key===col;});
+d.sort(function(a,b){
+var va=c&&c.type==='num'?parseFloat(a[col])||0:String(a[col]||'').toLowerCase();
+var vb=c&&c.type==='num'?parseFloat(b[col])||0:String(b[col]||'').toLowerCase();
+if(va<vb)return dir==='asc'?-1:1;if(va>vb)return dir==='asc'?1:-1;return 0;
+});
+}
+return d;
+}
+function openFP(ctx,colKey,btn){
+var fp=document.getElementById('fpanel');var T=_tbl[ctx];if(!T)return;
+if(_fpCtx===ctx&&_fpCol===colKey&&fp.style.display==='block'){fp.style.display='none';_fpCtx=null;return;}
+_fpCtx=ctx;_fpCol=colKey;
+var c=T.cols.find(function(x){return x.key===colKey;});
+var isNum=c&&c.type==='num';var f=T.filters[colKey]||{};
+var h='<div class="fp-sort">';
+h+='<button onclick="sortTbl(\''+ctx+'\',\''+colKey+'\',\'asc\')"'+(T.sort.col===colKey&&T.sort.dir==='asc'?' class="a"':'')+'>↑ '+(isNum?'Small→Big':'A→Z')+'</button>';
+h+='<button onclick="sortTbl(\''+ctx+'\',\''+colKey+'\',\'desc\')"'+(T.sort.col===colKey&&T.sort.dir==='desc'?' class="a"':'')+'>↓ '+(isNum?'Big→Small':'Z→A')+'</button></div>';
+if(isNum){h+='<div class="fp-num"><input type="number" id="fpMin" placeholder="Min" value="'+(f.min||'')+'"><input type="number" id="fpMax" placeholder="Max" value="'+(f.max||'')+'"></div>';}
+else{
+h+='<input type="text" id="fpQ" placeholder="Search..." value="'+(f.q||'')+'" oninput="fpSearch()">';
+var vals=T.data.map(function(r){return String(r[colKey]||'');}).filter(function(v,i,a){return a.indexOf(v)===i;}).sort();
+var sel=f.vals||[];
+h+='<div class="fp-cbs" id="fpCbs"><label><input type="checkbox" onchange="fpTogAll(this)"'+(sel.length===0?' checked':'')+'>Select All</label>';
+vals.forEach(function(v){var ck=sel.length===0||sel.includes(v)?'checked':'';h+='<label><input type="checkbox" value="'+esc(v)+'" '+ck+'>'+esc(v||'(empty)')+'</label>';});
+h+='</div>';}
+h+='<div class="fp-acts"><button class="bp" onclick="applyFP()">OK</button><button class="bs" onclick="clearFP()">Clear</button></div>';
+fp.innerHTML=h;
+var rect=btn.getBoundingClientRect();
+fp.style.left=Math.min(rect.left,window.innerWidth-280)+'px';
+fp.style.top=(rect.bottom+4)+'px';fp.style.display='block';
+}
+function sortTbl(ctx,col,dir){_tbl[ctx].sort={col:col,dir:dir};renderFT(ctx);document.getElementById('fpanel').style.display='none';}
+function fpSearch(){var q=document.getElementById('fpQ').value.toLowerCase();document.querySelectorAll('#fpCbs label').forEach(function(lb,i){if(i===0)return;lb.style.display=lb.textContent.toLowerCase().includes(q)?'':'none';});}
+function fpTogAll(cb){document.querySelectorAll('#fpCbs input[type=checkbox]').forEach(function(x){if(x!==cb)x.checked=cb.checked;});}
+function applyFP(){
+var ctx=_fpCtx,col=_fpCol;var T=_tbl[ctx];var c=T.cols.find(function(x){return x.key===col;});
+if(c&&c.type==='num'){var mn=document.getElementById('fpMin').value;var mx=document.getElementById('fpMax').value;if(mn||mx)T.filters[col]={min:mn,max:mx};else delete T.filters[col];}
+else{var cbs=[].slice.call(document.querySelectorAll('#fpCbs input[type=checkbox]'));var allCb=cbs[0];var checked=cbs.slice(1).filter(function(x){return x.checked;}).map(function(x){return x.value;});var q=document.getElementById('fpQ').value;if(allCb.checked&&!q)delete T.filters[col];else T.filters[col]={vals:allCb.checked?[]:checked,q:q};}
+document.getElementById('fpanel').style.display='none';renderFT(ctx);
+}
+function clearFP(){delete _tbl[_fpCtx].filters[_fpCol];document.getElementById('fpanel').style.display='none';renderFT(_fpCtx);}
+document.addEventListener('click',function(e){var fp=document.getElementById('fpanel');if(fp.style.display==='block'&&!fp.contains(e.target)&&!e.target.classList.contains('fb'))fp.style.display='none';});
+
+var REC_COLS=[
+{key:'idx',label:'#',type:'num'},{key:'rd',label:'RD',type:'text'},{key:'brand',label:'Brand',type:'text'},
+{key:'ty',label:'Type',type:'text'},{key:'sub',label:'Subtype',type:'text'},{key:'comp',label:'Composition',type:'text'},
+{key:'wt',label:'Weight',type:'num'},{key:'sc',label:'Score',type:'num'}
+];
+
+/* ═══ Composition Parser & Scorer ═══ */
+var FIBER_NORM={'cotton':'Cotton','polyester':'Polyester','nylon':'Nylon','nylon 6':'Nylon','nylon 66':'Nylon',
+'spandex':'Spandex','elastane':'Spandex','lycra':'Spandex','viscose':'Viscose','rayon':'Rayon','modal':'Modal',
+'lyocell':'Lyocell','tencel':'Lyocell','wool':'Wool','linen':'Linen','silk':'Silk','acrylic':'Acrylic','hemp':'Hemp','ramie':'Ramie','cashmere':'Cashmere'};
+function parseComp(str){
+if(!str)return[];var parts=str.split(/,\s*/);var res=[];
+parts.forEach(function(p){var m=p.match(/(\d+(?:\.\d+)?)\s*%\s*(.*)/);if(m){var pct=parseFloat(m[1]);var raw=m[2].toLowerCase().replace(/\(.*?\)/g,'').trim();var fiber='Other';for(var k in FIBER_NORM){if(raw.includes(k)){fiber=FIBER_NORM[k];break;}}var ex=res.find(function(r){return r.fiber===fiber;});if(ex)ex.pct+=pct;else res.push({fiber:fiber,pct:pct});}});
+res.sort(function(a,b){return b.pct-a.pct;});return res;
+}
+function isGroupA(f){return f==='Cotton'||f==='Polyester'||f==='Rayon';}
+function compScore(srcParsed,candParsed,hasSp){
+var tol=hasSp?0.05:0.10;
+var srcMain=srcParsed.filter(function(c){return c.fiber!=='Spandex';});
+var candMain=candParsed.filter(function(c){return c.fiber!=='Spandex';});
+if(srcMain.length===0||candMain.length===0)return{sc:0,grpA:false};
+var sc=0,grpA=false;
+if(srcMain[0].fiber===candMain[0].fiber)sc+=30;
+else if(isGroupA(srcMain[0].fiber)&&isGroupA(candMain[0].fiber)){sc+=15;grpA=true;}
+else return{sc:0,grpA:false};
+var allPass=true;
+srcMain.forEach(function(sf){var cf=candMain.find(function(c){return c.fiber===sf.fiber;});if(cf){var lo=sf.pct*(1-tol),hi=sf.pct*(1+tol);if(cf.pct>=lo&&cf.pct<=hi)sc+=5;else allPass=false;}else{if(grpA){var alt=candMain.find(function(c){return isGroupA(c.fiber)&&!srcMain.find(function(s){return s.fiber===c.fiber;});});if(alt){var lo2=sf.pct*(1-tol),hi2=sf.pct*(1+tol);if(alt.pct>=lo2&&alt.pct<=hi2)sc+=3;else allPass=false;}else allPass=false;}else allPass=false;}});
+if(allPass)sc+=15;
+candMain.forEach(function(cf){if(!srcMain.find(function(s){return s.fiber===cf.fiber;})&&!(grpA&&isGroupA(cf.fiber)))sc-=3;});
+return{sc:Math.max(sc,0),grpA:grpA};
+}
+
+/* ═══ getRec — SOP: Type→Spandex→Subtype→Weight→Composition ═══ */
+function getRec(cr){
+var pool=[];
+if(cr.ty==='Knit'||cr.ty==='knit')pool=[].concat(FI.knit);
+else if(cr.ty==='Woven'||cr.ty==='woven')pool=[].concat(FI.woven);
+else if(cr.ty==='Denim'||cr.ty==='denim')pool=[].concat(FI.denim);
+else pool=[].concat(FI.knit,FI.woven,FI.denim);
+if(cr.hasSp===true)pool=pool.filter(function(f){return f.hasSp===true;});
+else if(cr.hasSp===false)pool=pool.filter(function(f){return f.hasSp===false;});
+if(cr.brand)pool=pool.filter(function(f){return f.brand&&f.brand.toLowerCase().includes(cr.brand.toLowerCase());});
+pool=pool.filter(function(f){return!(f.desc||'').toUpperCase().includes('DO NOT USE')&&!(f.desc||'').toUpperCase().includes('INACTIVE');});
+var srcParsed=cr._parsed||parseComp(cr.comp||'');
+var results=pool.map(function(f){
+var sc=0;
+if(cr.sub){var cs=cr.sub.toLowerCase(),fs=(f.sub||'').toLowerCase();if(fs===cs)sc+=40;else if(fs.includes(cs)||cs.includes(fs))sc+=25;else if((f.name||'').toLowerCase().includes(cs))sc+=15;}
+if(cr.wt>0&&f.wt>0){var d=Math.abs(f.wt-cr.wt)/cr.wt;if(d<=0.15)sc+=30*(1-d/0.15);else if(d<=0.3)sc+=10*(1-d/0.3);}else if(cr.wt===0)sc+=2;
+if(srcParsed.length>0){var candParsed=parseComp(f.comp);var cs2=compScore(srcParsed,candParsed,cr.hasSp===true);sc+=cs2.sc;}
+return Object.assign({},f,{sc:Math.round(sc)});
+}).filter(function(s){return s.sc>0;}).sort(function(a,b){return b.sc-a.sc;});
+if(results.length<5&&srcParsed.length>0&&srcParsed[0]&&isGroupA(srcParsed[0].fiber)){
+var relaxed=pool.map(function(f){var sc=0;if(cr.sub){var cs=cr.sub.toLowerCase(),fs=(f.sub||'').toLowerCase();if(fs===cs)sc+=40;else if(fs.includes(cs)||cs.includes(fs))sc+=25;}if(cr.wt>0&&f.wt>0){var dd=Math.abs(f.wt-cr.wt)/cr.wt;if(dd<=0.15)sc+=30*(1-dd/0.15);}var candP=parseComp(f.comp);var cs2=compScore(srcParsed,candP,cr.hasSp===true);if(cs2.grpA)sc+=cs2.sc;return Object.assign({},f,{sc:Math.round(sc),grpA:true});}).filter(function(s){return s.sc>0&&s.grpA;}).sort(function(a,b){return b.sc-a.sc;});
+var existRDs=results.map(function(r){return r.rd;});relaxed.forEach(function(r){if(!existRDs.includes(r.rd))results.push(r);});results.sort(function(a,b){return b.sc-a.sc;});
+}
+return results;
+}
+
+/* ═══ parseFT — with oz conversion ═══ */
+function parseFT(ft){
+var ty='';
+if(/\(Woven\)|,\s*woven\b/i.test(ft))ty='Woven';
+else if(/\(Knit\)|,\s*knit\b|jersey|interlock|rib\b|fleece|pique|terry/i.test(ft))ty='Knit';
+else if(/denim/i.test(ft))ty='Denim';
+var sp=/spandex|elastane|lycra/i.test(ft);
+var sub='';
+var subs=['Corduroy','Twill','Poplin','Oxford','Satin','Flannel','Canvas','Chambray','Chiffon','Voile','Dobby','Jacquard','Single Jersey','Jersey','Interlock','Rib','French Terry','Fleece','Pique','Ponte','Velour','Mesh','Denim','Crepe','Gauze','Lawn','Sateen','Velvet'];
+for(var i=0;i<subs.length;i++){if(ft.toLowerCase().includes(subs[i].toLowerCase())){sub=subs[i];break;}}
+var wt=0;
+var wm=ft.match(/(\d+(?:\.\d+)?)\s*(g\/m2|gsm|gm)/i);
+if(wm){wt=parseFloat(wm[1]);}
+else{var ozm=ft.match(/(\d+(?:\.\d+)?)\s*(oz\/?s?q?\s*y(?:d|ard)|oz\/yd2|osy)/i);if(ozm)wt=Math.round(parseFloat(ozm[1])*33.906);}
+var comp='';
+['Cotton','Polyester','Nylon','Viscose','Modal','Lyocell','Wool','Linen','Rayon','Tencel','Spandex','Elastane','Lycra','Acrylic'].forEach(function(w){if(ft.toLowerCase().includes(w.toLowerCase()))comp+=(comp?', ':'')+w;});
+var _parsed=parseComp(ft);
+return{ty:ty,hasSp:sp,sub:sub,wt:wt,comp:comp,_parsed:_parsed};
+}
+
+/* ═══ Utilities ═══ */
+function cpC(i){var t=_cmts[i];if(!t)return;navigator.clipboard.writeText(t).then(function(){toast('Copied!');}).catch(function(){var a=document.createElement('textarea');a.value=t;document.body.appendChild(a);a.select();document.execCommand('copy');document.body.removeChild(a);toast('Copied!');});}
+
+function addHist(ci,ctx,idx){
+var T=_tbl[ctx];if(!T)return;var f=T.filtered[idx];if(!f)return;
+/* Get actual info from _actMap if available (Batch sub-table) */
+var act=_actMap[ctx]||null;
+var origRD='',origDesc='',styleSt='',styleCa='';
+if(act){
+  styleSt=act.st||'';
+  styleCa=act.ca||'';
+  /* Orig RD: from actualInfo match, or from the row's rd field, or extract from ft */
+  var ai=act.actualInfo;
+  if(ai){origRD=ai.rd||'';origDesc=(ai.sub||'')+', '+(ai.comp||'')+', '+ai.wt+'g/m2';}
+  else if(act.rd){origRD=act.rd;origDesc=act.ft||'';}
+  else{origRD='';origDesc=act.ft||'';}
+}else{
+  /* Query mode: use search text */
+  var searchText=document.getElementById('qi').value.trim();
+  if(searchText){var rdMatch=searchText.match(/(?:RD#?)?([0-9]{5,7})/i);if(rdMatch)origRD=rdMatch[1];origDesc=searchText;}
+}
+document.getElementById('mOR').value=origRD;
+document.getElementById('mOD').value=origDesc;
+document.getElementById('mSR').value=f.rd||'';
+document.getElementById('mSD').value=(f.sub||'')+', '+(f.comp||'')+', '+f.wt+'g/m2';
+document.getElementById('mNo').value='Score:'+f.sc+' Brand:'+f.brand;
+document.getElementById('mSt').value=styleSt;
+document.getElementById('mCa').value=styleCa;
+document.getElementById('mSe').value='';document.getElementById('mS2').value='';
+eIdx=-1;document.getElementById('moT').textContent='Add to History';document.getElementById('mo').classList.add('sh');
+/* Rebuild comment with actual info before copying */
+var actFab=act&&act.actualInfo?act.actualInfo:null;
+var updatedCmt=genC('s',f,actFab);
+navigator.clipboard.writeText(updatedCmt).catch(function(){var a=document.createElement('textarea');a.value=updatedCmt;document.body.appendChild(a);a.select();document.execCommand('copy');document.body.removeChild(a);});
+toast('Comment copied with Actual info! Fill Season to save.','var(--bl)');
+}
+
+var DATA_FILE='fabric-data.json';
+function applyData(d,fromRemote){
+if(!d)return;
+if(d.fi)FI=d.fi;
+if(d.hist)hist=d.hist;
+if(d.tpl){document.getElementById('tA').value=d.tpl.a||document.getElementById('tA').value;document.getElementById('tS').value=d.tpl.s||document.getElementById('tS').value;}
+if(fromRemote){try{localStorage.setItem('gfi_cache',JSON.stringify(FI));localStorage.setItem('ghi_cache',JSON.stringify(hist));localStorage.setItem('gtl_cache',JSON.stringify({a:document.getElementById('tA').value,s:document.getElementById('tS').value}));}catch(e){}}
+}
+function init(){
+try{
+  var h=localStorage.getItem('ghi');if(h)hist=JSON.parse(h); // each user can still keep their own history locally
+  var t=localStorage.getItem('gtl');if(t){var o=JSON.parse(t);document.getElementById('tA').value=o.a||document.getElementById('tA').value;document.getElementById('tS').value=o.s||document.getElementById('tS').value;}
+}catch(e){}
+upSt();renH();showFI('knit');
+fetch(DATA_FILE+'?v='+Date.now(),{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('No shared data file');return r.json();}).then(function(d){applyData(d,true);upSt();renH();showFI('knit');toast('Shared fabric data loaded');}).catch(function(){
+  try{var cf=localStorage.getItem('gfi_cache')||localStorage.getItem('gfi');if(cf)FI=JSON.parse(cf);var ch=localStorage.getItem('ghi_cache');if(ch&&!hist.length)hist=JSON.parse(ch);var ct=localStorage.getItem('gtl_cache');if(ct){var co=JSON.parse(ct);document.getElementById('tA').value=co.a||document.getElementById('tA').value;document.getElementById('tS').value=co.s||document.getElementById('tS').value;}}catch(e){}
+  upSt();renH();showFI('knit');
+});
+}
+function save(){try{localStorage.setItem('gfi',JSON.stringify(FI));localStorage.setItem('ghi',JSON.stringify(hist));}catch(e){}}
+function upSt(){document.getElementById('sK').textContent=FI.knit.length;document.getElementById('sW').textContent=FI.woven.length;document.getElementById('sD').textContent=FI.denim.length;document.getElementById('sH').textContent=hist.length;}
+function toast(m,c){var t=document.getElementById('tst');t.textContent=m;t.style.background=c||'var(--gn)';t.style.display='block';setTimeout(function(){t.style.display='none';},3000);}
+function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function sw(i){document.querySelectorAll('#mtabs button').forEach(function(b,j){b.classList.toggle('a',j===i);});document.querySelectorAll('.ct>.tp').forEach(function(p,j){p.classList.toggle('a',j===i);});}
+function ss(i){document.querySelectorAll('#stabs button').forEach(function(b,j){b.classList.toggle('a',j===i);});document.querySelectorAll('#p0>.tp').forEach(function(p,j){p.classList.toggle('a',j===i);});}
+function togD(id){var el=document.getElementById(id);if(el)el.style.display=el.style.display==='none'?'table-row':'none';}
+function genC(ty,f,act){var tpl=ty==='a'?document.getElementById('tA').value:document.getElementById('tS').value;var out=tpl.replace(/\{rd\}/g,f.rd||'').replace(/\{fabric_name\}/g,f.name||f.sub||'').replace(/\{composition\}/g,f.comp||'').replace(/\{weight\}/g,String(f.wt||'')).replace(/\{subtype\}/g,f.sub||'');if(act){out=out.replace(/\{actual_rd\}/g,act.rd||'').replace(/\{actual_name\}/g,act.name||act.sub||'').replace(/\{actual_comp\}/g,act.comp||'').replace(/\{actual_weight\}/g,String(act.wt||''));}else{out=out.replace(/\{actual_rd\}|\{actual_name\}|\{actual_comp\}|\{actual_weight\}/g,'');}return out;}
+
+/* ═══ FI Load + Browser ═══ */
+function ldFI(ty){var ids={knit:'fK',woven:'fW',denim:'fD'};var file=document.getElementById(ids[ty]).files[0];if(!file){toast('Select file','var(--or)');return;}var rd=new FileReader();rd.onload=function(e){try{var wb=XLSX.read(e.target.result,{type:'array'});var ws=wb.Sheets[wb.SheetNames[0]];var rows=XLSX.utils.sheet_to_json(ws,{defval:''});FI[ty]=rows.map(function(r){return normR(r,ty);}).filter(function(r){return r.rd;});save();upSt();showFI(ty);toast(ty.toUpperCase()+' loaded: '+FI[ty].length);}catch(er){toast('Error: '+er.message,'var(--rd)');}};rd.readAsArrayBuffer(file);}
+function normR(r,ty){var brand=r['Originating Brands']||'';var rd=String(r['RD Number']||'').replace(/^RD#?/i,'').trim();var desc=r['Material Brief Description']||'';var name=r['Material Name']||'';var sub=r['Material Subtype']||'';var wt=parseFloat(r['Before Wash Weight'])||0;var uom=r['Weight UOM']||'g/m2';var comp=r['Composition']||'';var cf=r['Composition Fibers']||'';var spx=r['Spandex Content']||'';var hasSp=/spandex|elastane|lycra/i.test(comp)||(spx&&!/without/i.test(spx));if(uom&&/oz/i.test(uom)&&wt>0)wt=Math.round(wt*33.906);return{brand:brand,rd:rd,desc:desc,name:name,sub:sub,wt:wt,comp:comp,cf:cf,hasSp:hasSp,ty:ty};}
+function showFI(ty){curFI=ty;document.getElementById('fcK').textContent=FI.knit.length;document.getElementById('fcW').textContent=FI.woven.length;document.getElementById('fcD').textContent=FI.denim.length;document.querySelectorAll('.fi-tab').forEach(function(b){b.classList.remove('a');});var tid={knit:'ftK',woven:'ftW',denim:'ftD'};document.getElementById(tid[ty]).classList.add('a');var q=(document.getElementById('fiq')||{}).value||'';var ql=q.toLowerCase();var data=FI[ty];if(q)data=data.filter(function(f){return f.rd.includes(ql)||(f.name||'').toLowerCase().includes(ql)||(f.comp||'').toLowerCase().includes(ql)||(f.sub||'').toLowerCase().includes(ql)||(f.brand||'').toLowerCase().includes(ql);});var h='<p style="font-size:.82em;color:var(--t2);margin-bottom:6px">'+ty.toUpperCase()+': '+data.length+' / '+FI[ty].length+'</p><table class="dt"><thead><tr><th>RD</th><th>Brand</th><th>Subtype</th><th>Name</th><th>Composition</th><th>Weight</th><th>Spandex</th><th></th></tr></thead><tbody>';data.forEach(function(f){var ri=FI[ty].indexOf(f);h+='<tr><td contenteditable onblur="edFI(\''+ty+'\','+ri+',\'rd\',this.textContent)"><b>'+f.rd+'</b></td><td contenteditable onblur="edFI(\''+ty+'\','+ri+',\'brand\',this.textContent)">'+f.brand+'</td><td contenteditable onblur="edFI(\''+ty+'\','+ri+',\'sub\',this.textContent)">'+f.sub+'</td><td contenteditable onblur="edFI(\''+ty+'\','+ri+',\'name\',this.textContent)" style="max-width:180px;font-size:.82em">'+f.name+'</td><td contenteditable onblur="edFI(\''+ty+'\','+ri+',\'comp\',this.textContent)" style="max-width:220px;font-size:.8em">'+f.comp+'</td><td contenteditable onblur="edFI(\''+ty+'\','+ri+',\'wt\',this.textContent)">'+f.wt+'</td><td>'+(f.hasSp?'<span class="bdg ba">Yes</span>':'No')+'</td><td><button class="btn bsm br" onclick="delFI(\''+ty+'\','+ri+')">Del</button></td></tr>';});h+='</tbody></table>';document.getElementById('fit').innerHTML=h;}
+function edFI(ty,idx,key,val){if(key==='wt')FI[ty][idx][key]=parseFloat(val)||0;else FI[ty][idx][key]=val.trim();}
+function delFI(ty,idx){if(!confirm('Delete?'))return;FI[ty].splice(idx,1);save();upSt();showFI(ty);toast('Deleted','var(--or)');}
+function saveFI(){save();upSt();showFI(curFI);toast('FI saved!');}
+
+/* ═══ Search ═══ */
+function doS(){
+var q=document.getElementById('qi').value.trim();if(!q){toast('Enter search','var(--or)');return;}
+var o=document.getElementById('sr');_cmts=[];
+var _rdPre=(q.match(/RD#?[0-9]{5,7}/gi)||[]);var rdM=_rdPre.map(function(m){return m.replace(/^RD#?/i,'');});if(rdM.length===0){var rdPlain=(q.match(/(?<![A-Za-z0-9])([0-9]{5,7})(?![0-9])/g)||[]);rdPlain.forEach(function(v){if(!rdM.includes(v))rdM.push(v);});}var rdNums=rdM.filter(function(v,i,a){return a.indexOf(v)===i;});
+var act=[];if(rdNums.length>0){var all=[].concat(FI.knit,FI.woven,FI.denim);rdNums.forEach(function(n){act=act.concat(all.filter(function(f){return f.rd.replace(/^0+/,'')===n.replace(/^0+/,'');}));});}
+var ql=q.toLowerCase();var hi=hist.filter(function(h){return(h.st||'').toLowerCase().includes(ql)||(h.or||'').includes(ql.replace(/rd#?/i,''))||(h.sr||'').includes(ql.replace(/rd#?/i,''));});
+var parsed=parseFT(q);var rec=[];
+var rec=[];
+if(act.length===0&&hi.length===0&&(parsed.wt>0||parsed.comp||parsed.sub))rec=getRec(parsed).slice(0,30);
+var h='';
+if(act.length>0){h+='<div class="cd"><h3><span class="bdg ba">Actual</span> '+act.length+'</h3><table class="dt"><thead><tr><th>RD</th><th>Brand</th><th>Subtype</th><th>Name</th><th>Composition</th><th>Weight</th><th></th></tr></thead><tbody>';act.forEach(function(f){var ci=_cmts.length;_cmts.push(genC('a',f));h+='<tr><td><b>'+f.rd+'</b></td><td><span class="bdg bb">'+f.brand+'</span></td><td>'+f.sub+'</td><td>'+f.name+'</td><td style="max-width:250px;font-size:.8em">'+f.comp+'</td><td>'+f.wt+'</td><td><button class="btn bsm bp" onclick="cpC('+ci+')">Copy</button></td></tr>';});h+='</tbody></table></div>';}
+if(hi.length>0){h+='<div class="cd"><h3><span class="bdg bh">History</span> '+hi.length+'</h3><table class="dt"><thead><tr><th>Style</th><th>Season</th><th>Orig RD</th><th>Sub RD</th><th>Desc</th><th></th></tr></thead><tbody>';hi.forEach(function(r){var ci=_cmts.length;_cmts.push(genC('s',{rd:r.sr,name:r.sd,comp:r.sd,wt:'',sub:''}));h+='<tr><td>'+r.st+'</td><td>'+r.se+'</td><td>'+r.or+'</td><td><b>'+r.sr+'</b></td><td style="font-size:.85em">'+r.sd+'</td><td><button class="btn bsm bp" onclick="cpC('+ci+')">Copy</button></td></tr>';});h+='</tbody></table></div>';}
+if(rec.length>0){h+='<div class="cd"><h3><span class="bdg bo">Recommend</span> '+rec.length+'</h3><div style="font-size:.82em;color:var(--t2);margin-bottom:8px"><b>Parsed:</b> Type=<span class="tg">'+(parsed.ty||'?')+'</span> Spandex='+(parsed.hasSp?'Yes':'No')+' Subtype=<span class="tg">'+(parsed.sub||'?')+'</span> Weight='+parsed.wt+'g/m2</div><div id="srRec"></div></div>';}
+if(!h)h='<div class="emp">No results.</div>';o.innerHTML=h;
+if(rec.length>0)regTbl('srRec',rec,REC_COLS,'srRec',true);
+}
+function clrS(){document.getElementById('qi').value='';document.getElementById('sr').innerHTML='';}
+
+function doR(){
+var cr={ty:document.getElementById('rT').value,sub:document.getElementById('rSt').value,wt:(parseInt(document.getElementById('rWn').value)||0+parseInt(document.getElementById('rWx').value)||0)/2||parseInt(document.getElementById('rWn').value)||parseInt(document.getElementById('rWx').value)||0,comp:document.getElementById('rC').value,hasSp:document.getElementById('rSp').value==='y'?true:document.getElementById('rSp').value==='n'?false:undefined,brand:document.getElementById('rB').value};
+cr._parsed=parseComp(cr.comp);
+var mn=parseInt(document.getElementById('rWn').value)||0,mx=parseInt(document.getElementById('rWx').value)||99999;
+var res=getRec(cr);if(mn||mx<99999)res=res.filter(function(r){return r.wt>=mn&&r.wt<=mx;});
+var o=document.getElementById('rr');if(!res.length){o.innerHTML='<div class="emp">No match.</div>';return;}
+o.innerHTML='<div id="rrTbl"></div>';regTbl('rrTbl',res.slice(0,50),REC_COLS,'rrTbl',true);
+}
+
+/* ═══ History CRUD ═══ */
+function shMo(i){eIdx=i!==undefined?i:-1;document.getElementById('moT').textContent=eIdx>=0?'Edit':'New History Record';if(eIdx>=0){var h=hist[eIdx];document.getElementById('mSt').value=h.st||'';document.getElementById('mCa').value=h.ca||'';document.getElementById('mSe').value=h.se||'';document.getElementById('mOR').value=h.or||'';document.getElementById('mOD').value=h.od||'';document.getElementById('mSR').value=h.sr||'';document.getElementById('mS2').value=h.s2||'';document.getElementById('mSD').value=h.sd||'';document.getElementById('mNo').value=h.no||'';}else{['mSt','mCa','mSe','mOR','mOD','mSR','mS2','mSD','mNo'].forEach(function(id){document.getElementById(id).value='';});}document.getElementById('mo').classList.add('sh');}
+function hiMo(){document.getElementById('mo').classList.remove('sh');}
+function svH(){var r={st:document.getElementById('mSt').value,ca:document.getElementById('mCa').value,se:document.getElementById('mSe').value,or:document.getElementById('mOR').value,od:document.getElementById('mOD').value,sr:document.getElementById('mSR').value,s2:document.getElementById('mS2').value,sd:document.getElementById('mSD').value,no:document.getElementById('mNo').value,dt:new Date().toISOString().split('T')[0]};if(!r.st&&!r.or){toast('Fill style/RD','var(--or)');return;}if(eIdx>=0)hist[eIdx]=r;else hist.push(r);save();upSt();renH();hiMo();toast('Saved!');}
+function delH(i){if(!confirm('Delete?'))return;hist.splice(i,1);save();upSt();renH();toast('Deleted','var(--or)');}
+function renH(){var q=(document.getElementById('hq')||{}).value||'';var ql=q.toLowerCase();var fl=hist;if(q)fl=hist.filter(function(h){return(h.st||'').toLowerCase().includes(ql)||(h.or||'').includes(ql)||(h.sr||'').includes(ql);});var el=document.getElementById('ht');if(!fl.length){el.innerHTML='<div class="emp">No records</div>';return;}var h='<table class="dt"><thead><tr><th>Date</th><th>Season</th><th>Cat</th><th>Style</th><th>Orig RD</th><th>Sub RD</th><th>Desc</th><th></th></tr></thead><tbody>';fl.forEach(function(r){var ri=hist.indexOf(r);h+='<tr><td>'+r.dt+'</td><td>'+r.se+'</td><td>'+r.ca+'</td><td>'+r.st+'</td><td>'+r.or+'</td><td><b>'+r.sr+'</b>'+(r.s2?' / '+r.s2:'')+'</td><td style="font-size:.82em">'+r.sd+'</td><td><button class="btn bsm bs" onclick="shMo('+ri+')">Edit</button> <button class="btn bsm br" onclick="delH('+ri+')">Del</button></td></tr>';});h+='</tbody></table>';el.innerHTML=h;}
+function exH(){var hdr='style,category,season,origRD,origDesc,subRD,subRD2,subDesc,notes,date';var rows=hist.map(function(h){return[h.st,h.ca,h.se,h.or,h.od,h.sr,h.s2,h.sd,h.no,h.dt].map(function(v){return'"'+(v||'').replace(/"/g,'""')+'"';}).join(',');});var csv=hdr+'\n'+rows.join('\n');var b=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});var a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='history_'+new Date().toISOString().split('T')[0]+'.csv';a.click();}
+function imH(e){var f=e.target.files[0];if(!f)return;var r=new FileReader();r.onload=function(ev){try{var lines=ev.target.result.split('\n').filter(function(l){return l.trim();});if(lines.length<2){toast('Empty CSV','var(--or)');return;}var imported=[];for(var i=1;i<lines.length;i++){var vals=[],cur='',inQ=false;for(var c=0;c<lines[i].length;c++){var ch=lines[i][c];if(ch==='"')inQ=!inQ;else if(ch===','&&!inQ){vals.push(cur);cur='';}else cur+=ch;}vals.push(cur);vals=vals.map(function(v){return v.replace(/""/g,'"').trim();});imported.push({st:vals[0]||'',ca:vals[1]||'',se:vals[2]||'',or:vals[3]||'',od:vals[4]||'',sr:vals[5]||'',s2:vals[6]||'',sd:vals[7]||'',no:vals[8]||'',dt:vals[9]||''});}hist=hist.concat(imported);save();upSt();renH();toast('Imported '+imported.length);}catch(er){toast('CSV failed','var(--rd)');}};r.readAsText(f);e.target.value='';}
+function svTpl(){localStorage.setItem('gtl',JSON.stringify({a:document.getElementById('tA').value,s:document.getElementById('tS').value}));toast('Saved!');}
+
+/* ═══ Batch — Smart Header Detection ═══ */
+function gStp(n){document.querySelectorAll('.sp').forEach(function(p,i){p.classList.toggle('a',i===n);});document.querySelectorAll('.sbar div').forEach(function(s,i){s.classList.remove('a','d');if(i<n)s.classList.add('d');if(i===n)s.classList.add('a');});}
+
+function ldBF(e){
+var f=e.target.files[0];if(!f)return;
+var r=new FileReader();
+r.onload=function(ev){
+try{
+var wb=XLSX.read(ev.target.result,{type:'array'});BD.wb=wb;BD.sn=wb.SheetNames;
+var ws=wb.Sheets[wb.SheetNames[0]];
+var raw=XLSX.utils.sheet_to_json(ws,{defval:'',header:1});
+var hdrKeys=['design number','dev. style','dev style','style','bom primary','rd number','season','category','collection','主料','material','primary rd','brand','design name','supplier','program','gender'];
+var hdrRow=0,hdrMax=0;
+for(var ri=0;ri<Math.min(raw.length,25);ri++){
+  var row=raw[ri];if(!Array.isArray(row))continue;
+  var sc=0;row.forEach(function(cell){var v=String(cell||'').toLowerCase();hdrKeys.forEach(function(k){if(v.includes(k))sc++;});});
+  if(sc>hdrMax){hdrMax=sc;hdrRow=ri;}
+}
+var rows=XLSX.utils.sheet_to_json(ws,{defval:'',range:hdrRow});
+rows=rows.filter(function(r){var vals=Object.values(r).join('');return vals.length>5&&!/^__EMPTY/.test(vals);});
+if(rows.length===0){toast('No data found','var(--rd)');return;}
+var cols=Object.keys(rows[0]);
+var styleCol='',rdCol='',matCol='';
+cols.forEach(function(c){var cl=c.toLowerCase();if(!styleCol&&(cl.includes('design number')||cl.includes('dev. style')||cl==='dev style'||(cl.includes('style')&&!cl.includes('description')&&!cl.includes('legacy'))))styleCol=c;if(!rdCol&&(cl.includes('bom primary rd number')||cl.includes('bom primary rd')||(cl.includes('rd number')&&!cl.includes('name'))))rdCol=c;if(!matCol&&(cl.includes('primary rd quality')||cl==='主料'||cl.includes('main material')||cl.includes('material brief')||cl.includes('bom primary rd name')))matCol=c;});
+var sample=rows.slice(0,15);
+if(!styleCol){cols.forEach(function(c){if(styleCol)return;if(sample.some(function(r){return/D\d{4,5}/.test(String(r[c]||''));}))styleCol=c;});}
+if(!matCol){cols.forEach(function(c){if(matCol)return;if(sample.some(function(r){return/cotton|polyester|nylon|viscose|spandex|g\/m2|gsm|oz|fleece|jersey|interlock|crepe|poplin|twill/i.test(String(r[c]||''));}))matCol=c;});}
+if(!rdCol){cols.forEach(function(c){if(rdCol||c===styleCol||c===matCol)return;if(sample.some(function(r){return/^\d{5,7}$/.test(String(r[c]||'').trim());}))rdCol=c;});}
+var flds=[{id:'mS',l:'Style#',auto:styleCol},{id:'mR',l:'BOM RD',auto:rdCol},{id:'mF',l:'Material',auto:matCol}];
+var mh='';flds.forEach(function(f){var det=f.auto?'<span style="color:var(--gn);font-size:.75em"> ✓ auto</span>':'<span style="color:var(--or);font-size:.75em"> ? manual</span>';mh+='<div class="fg"><label>'+f.l+det+'</label><select id="'+f.id+'"><option value="">(skip)</option>';cols.forEach(function(c){mh+='<option value="'+esc(c)+'"'+(c===f.auto?' selected':'')+'>'+esc(c)+'</option>';});mh+='</select></div>';});
+document.getElementById('ma').innerHTML=mh;
+BD._rows=rows;gStp(1);toast('Loaded: '+rows.length+' rows (header row '+(hdrRow+1)+')');
+}catch(er){toast('Error: '+er.message,'var(--rd)');}
+};r.readAsArrayBuffer(f);
+}
+
+function doMap(){
+var rows=BD._rows;if(!rows||!rows.length){toast('No data','var(--or)');return;}
+var ms=document.getElementById('mS').value,mr=document.getElementById('mR').value,mf=document.getElementById('mF').value;
+BD.mapped=rows.map(function(r){
+  var style=String(r[ms]||'').trim();
+  var ft=String(r[mf]||'').trim();
+  /* 1. Try extracting RD from style name first (most reliable) */
+  var styleRdMatch=style.match(/_RD(\d{5,7})/i);
+  var cleanStyle=style.replace(/_RD\d+.*/i,'').trim()||style;
+  /* 2. Read BOM RD column - could be full text like "49504, Plain Weave..." */
+  var rdRaw=String(r[mr]||'').replace(/^RD#?/i,'').trim();
+  var rd='';
+  if(styleRdMatch)rd=styleRdMatch[1];
+  else if(rdRaw&&rdRaw.length<=7)rd=rdRaw;  /* pure short RD number */
+  else if(rdRaw){var rdFromRaw=rdRaw.match(/^(\d{5,7})(?:[,\s]|$)/);if(rdFromRaw)rd=rdFromRaw[1];}
+  /* 3. Fallback: extract from material text */
+  if(!rd&&ft){var m=ft.match(/^(\d{5,7})(?:[,\s]|$)/);if(m)rd=m[1];}
+  if(!rd&&ft){var m2=ft.match(/(?:RD#?)(\d{5,7})/i);if(m2)rd=m2[1];}
+  if(rd&&(/^9{6,}/.test(rd)||rd.length>7))rd='';
+  return{st:cleanStyle,ds:'',ca:'',ft:ft,rd:rd,su:'',se:''};
+}).filter(function(r){return !r.skip&&(r.st||r.rd);});
+procB();gStp(2);
+}
+
+function extractSegRD(text){
+if(!text)return'';
+var m=text.match(/(?:RD#?)([0-9]{5,7})/i);
+if(m)return m[1];
+var m2=text.match(/(?:^|[\s,])([0-9]{5,7})(?:[\s,\-]|$)/);
+return m2?m2[1]:'';
+}
+function splitFabricParts(ft){
+if(!ft)return[];
+var parts=[];
+var topM=ft.match(/\(表布\)([^(]+)/);
+var btmM=ft.match(/\(裡布\)([^(]+)/);
+if(topM||btmM){
+  if(topM)parts.push({label:'TOP (表布)',text:topM[1].trim()});
+  if(btmM)parts.push({label:'BTM (裡布)',text:btmM[1].trim()});
+  return parts;
+}
+var topM2=ft.match(/TOP\s*:?([^B\n]+)/i);
+var btmM2=ft.match(/BTM\s*:?(.+)/i);
+if(topM2&&btmM2){
+  parts.push({label:'TOP',text:topM2[1].trim()});
+  parts.push({label:'BTM',text:btmM2[1].trim()});
+  return parts;
+}
+return[];
+}
+function procRowFabric(row){
+var all=[].concat(FI.knit,FI.woven,FI.denim);
+var ft=row.ft||'';
+function findRD(rd){return rd?all.find(function(f){return f.rd.replace(/^0+/,'')===rd.replace(/^0+/,'');}):null;}
+var parts=splitFabricParts(ft);
+if(parts.length>0){
+  return parts.map(function(p){
+    var sub=Object.assign({},row,{ft:p.text,label:p.label,status:'recommend',match:null,hm:null,recs:[],parsedFT:null});
+    var segRD=extractSegRD(p.text)||extractSegRD(ft)||row.rd;
+    var f=findRD(segRD);
+    if(f){sub.status='actual';sub.match=f;return sub;}
+    if(!p.text){sub.status='skip';return sub;}
+    var prs=parseFT(p.text);sub.parsedFT=prs;
+    sub.recs=getRec(prs).slice(0,30);
+    return sub;
+  });
+}
+var single=Object.assign({},row,{label:'',status:'recommend',match:null,hm:null,recs:[],parsedFT:null});
+if(!ft&&!row.rd){single.status='skip';return[single];}
+var f2=findRD(row.rd)||findRD(extractSegRD(ft));
+if(f2){single.status='actual';single.match=f2;return[single];}
+var hm=hist.find(function(h){return h.or===row.rd||(h.st&&row.st&&h.st===row.st);});
+if(hm){single.status='history';single.hm=hm;return[single];}
+if(ft){var prs2=parseFT(ft);single.parsedFT=prs2;single.recs=getRec(prs2).slice(0,30);}
+return[single];
+}
+function procB(){
+var flatRes=[];
+BD.mapped.forEach(function(row){
+  var subs=procRowFabric(row);
+  subs.forEach(function(s){if(s.status!=='skip')flatRes.push(s);});
+});
+BD.res=flatRes;
+document.getElementById('bA').textContent=BD.res.filter(function(r){return r.status==='actual';}).length;
+document.getElementById('bH').textContent=BD.res.filter(function(r){return r.status==='history';}).length;
+document.getElementById('bR').textContent=BD.res.filter(function(r){return r.status==='recommend';}).length;
+renBR('all');
+}
+function fltB(f){renBR(f);}
+
+function selRec(ri,rc){var r=BD.res[ri];if(!r||!r.recs[rc])return;var f=r.recs[rc],cm=genC('s',f);var btn=document.getElementById('cb'+ri);if(btn){var mainCi=parseInt(btn.getAttribute('data-ci'));_cmts[mainCi]=cm;cpC(mainCi);}document.getElementById('rt'+ri).innerHTML='<b style="color:var(--gn)">Selected: RD'+f.rd+'</b> | '+f.sub+' | '+(f.comp||'').substring(0,40)+' | '+f.wt+'g/m2';document.querySelectorAll('#dr'+ri+' .sub-tbl tr[data-rj]').forEach(function(tr){tr.classList.remove('sel');});var sel=document.querySelector('#dr'+ri+' .sub-tbl tr[data-rj="'+rc+'"]');if(sel)sel.classList.add('sel');}
+
+function renBR(flt){
+_cmts=[];var items=BD.res;if(flt!=='all')items=items.filter(function(r){return r.status===flt;});
+var h='<table class="dt"><thead><tr><th>#</th><th>Style</th><th>Category</th><th>RD</th><th>Label</th><th>Status</th><th>Result</th><th>Action</th></tr></thead><tbody>';
+items.forEach(function(r,i){
+var ri=BD.res.indexOf(r);var bg=r.status==='actual'?'ba':r.status==='history'?'bh':'bo';
+var sl=r.status==='actual'?'Actual':r.status==='history'?'History Sub':'Need Rec';
+var rt='',cm='',detail='';
+if(r.status==='actual'&&r.match){var f=r.match;rt='<b style="color:var(--gn);font-size:1.05em">✓ ACTUAL: RD'+f.rd+'</b> <span style="font-size:.9em">'+f.sub+' | '+(f.comp||'').substring(0,50)+' | '+f.wt+'g/m2</span>';cm=genC('a',f);detail='<div><b>Brand:</b> '+f.brand+' | <b>Type:</b> '+f.ty+' | <b>Subtype:</b> '+f.sub+'</div><div><b>Composition:</b> '+f.comp+'</div><div><b>Weight:</b> '+f.wt+' g/m2</div>';}
+else if(r.status==='history'&&r.hm){var hm=r.hm;rt='Sub RD: <b>'+hm.sr+'</b>'+(hm.s2?' / '+hm.s2:'')+' | '+hm.sd;cm=genC('s',{rd:hm.sr,name:hm.sd,comp:hm.sd,wt:'',sub:''});detail='<div><b>Original:</b> '+hm.or+' | <b>Season:</b> '+hm.se+'</div><div>'+hm.sd+'</div>';}
+else if(r.recs.length>0){var top=r.recs[0];rt='<b style="color:var(--or)">'+r.recs.length+' candidates</b> (Top: RD'+top.rd+', '+top.sub+', '+top.wt+'g/m2, Score:'+top.sc+') <span style="font-size:.8em;color:var(--t2)">click to expand</span>';cm=genC('s',top,r.actualInfo||null);var parsed=parseFT(r.ft||'');detail='<div style="margin-bottom:8px;font-size:.85em;color:var(--t2)"><b>Source:</b> '+esc((r.ft||'').substring(0,300))+'</div>';detail+='<div style="margin-bottom:8px;font-size:.82em"><b>Parsed:</b> Type=<span class="tg">'+(parsed.ty||'?')+'</span> Spandex='+(parsed.hasSp?'Yes':'No')+' Subtype=<span class="tg">'+(parsed.sub||'?')+'</span> Weight='+parsed.wt+'g/m2</div>';detail+='<div id="bsub'+ri+'"></div>';}
+else rt='<span style="color:var(--rd)">No match</span>';
+var mainCi=_cmts.length;if(cm)_cmts.push(cm);
+h+='<tr style="cursor:pointer" onclick="togD(\'dr'+i+'\')">';
+h+='<td>'+(i+1)+'</td><td><b style="font-size:1.05em">'+esc(r.st)+'</b></td><td>'+esc(r.ca)+'</td><td>'+r.rd+'</td>';
+h+='<td style="font-size:.85em;color:var(--t2)">'+(r.label?'<b style="color:var(--ac)">'+esc(r.label)+'</b>':'')+'</td>';
+h+='<td><span class="bdg '+bg+'">'+sl+'</span></td>';
+h+='<td id="rt'+ri+'" style="font-size:.85em">'+rt+'</td>';
+h+='<td>'+(cm?'<button id="cb'+ri+'" data-ci="'+mainCi+'" class="btn bsm bp" onclick="event.stopPropagation();cpC('+mainCi+')">Copy</button>':'')+'</td>';
+h+='</tr>';
+if(detail)h+='<tr id="dr'+i+'" class="detail-row" style="display:none"><td colspan="8">'+detail+'</td></tr>';
+});
+h+='</tbody></table>';document.getElementById('bres').innerHTML=h;
+BD.res.forEach(function(r,ri2){if(r.status==='recommend'&&r.recs.length>0){var el=document.getElementById('bsub'+ri2);if(el){_actMap['bsub'+ri2]={st:r.st||'',ca:r.ca||'',rd:r.rd||'',ft:r.ft||'',label:r.label||'',actualInfo:r.actualInfo||null};regTbl('bsub'+ri2,r.recs,REC_COLS,'bsub'+ri2,true);}}});
+var ep='<table class="dt"><thead><tr><th>Style</th><th>Label</th><th>Status</th><th>Actual RD</th><th>Sub RD</th><th>Brand</th><th>Info</th></tr></thead><tbody>';
+BD.res.forEach(function(r){var aR='',sR='',br='',info='';if(r.status==='actual'&&r.match){aR=r.match.rd;br=r.match.brand;info=r.match.sub+', '+r.match.comp+', '+r.match.wt+'g/m2';}else if(r.status==='history'&&r.hm){sR=r.hm.sr;info=r.hm.sd;}else if(r.recs.length>0){sR=r.recs[0].rd;br=r.recs[0].brand;info=r.recs[0].sub+', '+r.recs[0].comp+', '+r.recs[0].wt+'g/m2';}ep+='<tr><td>'+esc(r.st)+'</td><td>'+(r.label||'')+'</td><td>'+r.status+'</td><td>'+aR+'</td><td>'+sR+'</td><td>'+br+'</td><td style="font-size:.82em">'+info+'</td></tr>';});
+ep+='</tbody></table>';document.getElementById('epv').innerHTML=ep;
+}
+
+/* ═══ Export ═══ */
+function exB(){var rows=BD.res.map(function(r){var j=r.status==='actual'?'Actual':r.status==='history'?'Historical Sub':'Recommended Sub';var aR='',sR='',br='',cm='',fi='';if(r.status==='actual'&&r.match){aR=r.match.rd;br=r.match.brand;cm=genC('a',r.match);fi=r.match.sub+', '+r.match.comp+', '+r.match.wt+'g/m2';}else if(r.status==='history'&&r.hm){sR=r.hm.sr;cm=genC('s',{rd:r.hm.sr,name:r.hm.sd,comp:'',wt:'',sub:''});fi=r.hm.sd;}else if(r.recs.length>0){var t=r.recs[0];sR=t.rd;br=t.brand;cm=genC('s',t);fi=t.sub+', '+t.comp+', '+t.wt+'g/m2';}return{Style:r.st,Category:r.ca,Season:r.se,Result:j,ActualRD:aR,SubRD:sR,Brand:br,Info:fi,Comment:cm};});var ws=XLSX.utils.json_to_sheet(rows);var wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Results');XLSX.writeFile(wb,'FDT_Results_'+new Date().toISOString().split('T')[0]+'.xlsx');toast('Exported!');}
+function cpAll(){var cmts=BD.res.map(function(r){var cm='';if(r.status==='actual'&&r.match)cm=genC('a',r.match);else if(r.status==='history'&&r.hm)cm=genC('s',{rd:r.hm.sr,name:r.hm.sd,comp:'',wt:'',sub:''});else if(r.recs.length>0)cm=genC('s',r.recs[0]);return r.st+': '+cm;}).join('\n\n');navigator.clipboard.writeText(cmts).then(function(){toast('All copied!');});}
+
+/* ═══ Data Sync ═══ */
+function exShared(){dlJ({fi:FI,hist:hist,tpl:{a:document.getElementById('tA').value,s:document.getElementById('tS').value},updatedAt:new Date().toISOString(),note:'Upload this file to GitHub with the exact filename fabric-data.json'},'fabric-data.json');}
+function exAll(){dlJ({fi:FI,hist:hist,tpl:{a:document.getElementById('tA').value,s:document.getElementById('tS').value},dt:new Date().toISOString()},'GIS_FDT_Backup_'+new Date().toISOString().split('T')[0]+'.json');}
+function imAll(e){var f=e.target.files[0];if(!f)return;var r=new FileReader();r.onload=function(ev){try{var d=JSON.parse(ev.target.result);applyData(d,false);save();upSt();renH();showFI('knit');toast('Imported! Export fabric-data.json when ready.');}catch(er){toast('Failed','var(--rd)');}};r.readAsText(f);e.target.value='';}
+function dlJ(d,fn){var b=new Blob([JSON.stringify(d,null,2)],{type:'application/json'});var a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=fn;a.click();}
+
+/* ═══ Init ═══ */
+document.addEventListener('DOMContentLoaded',function(){
+var dz=document.getElementById('dzn');
+if(dz){dz.addEventListener('dragover',function(e){e.preventDefault();dz.style.borderColor='var(--ac)';});dz.addEventListener('dragleave',function(){dz.style.borderColor='';});dz.addEventListener('drop',function(e){e.preventDefault();dz.style.borderColor='';var f=e.dataTransfer.files[0];if(f){var dt=new DataTransfer();dt.items.add(f);document.getElementById('bf').files=dt.files;ldBF({target:{files:[f]}});}});}
+init();
+});
+</script>
+</body>
+</html>
