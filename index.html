@@ -104,7 +104,7 @@ focus{background:rgba(61,140,94,.1);box-shadow:0 0 0 2px var(--ac)}
 <span>Knit:<b id="sK">0</b></span><span>Woven:<b id="sW">0</b></span><span>Denim:<b id="sD">0</b></span><span>History:<b id="sH">0</b></span>
 </div></div>
 <div class="mt" id="mtabs">
-<button class="a" onclick="sw(0)">Query</button><button onclick="sw(1)">Batch</button><button onclick="sw(2)">Settings</button>
+<button class="a" onclick="sw(0)">單筆查詢</button><button onclick="sw(1)">Excel查詢</button><button onclick="sw(2)">Settings</button>
 </div>
 <div class="ct">
 <div class="tp a" id="p0">
@@ -407,12 +407,48 @@ return results;
 /* ═══ parseFT — with oz conversion ═══ */
 function parseFT(ft){
 var ty='';
-if(/\(Woven\)|,\s*woven\b/i.test(ft))ty='Woven';
-else if(/\(Knit\)|,\s*knit\b|jersey|interlock|rib\b|fleece|pique|terry/i.test(ft))ty='Knit';
+if(/\(Woven\)|,\s*woven\b|\bwoven\b|plain[\s\-]weave|\bplain\b(?!\s*jersey)|twill\b|poplin\b|seersucker\b|oxford\s*cloth|broadcloth|\bcanvas\b|\bchiffon\b|\bvoile\b|\bdobby\b|\bjacquard\b(?!\s*knit)|\bcrepe\b|\bgauze\b|\blawn\b|\bsateen\b|\bvelvet\b|\bcorduroy\b|\bflannel\b|\bchambray\b|\bsatin\b|\btaffeta\b|\bgeorgette\b|\borganza\b|\bripstop\b|\bherringbone\b|\bmuslin\b|\bcharmeuse\b|\bhabutai\b|\bPiece\s*Dye\b|\bYarn\s*Dye\b/i.test(ft))ty='Woven';
+else if(/\(Knit\)|,\s*knit\b|(?<!\w)jersey(?!\s*weave)|\binterlock\b|\brib\b|\bfleece\b|\bpique\b|\bterry\b|\bfrench\s*terry\b|\bsweatshirt\b|\bponti\b|\bponte\b|\bvelour\b/i.test(ft))ty='Knit';
 else if(/denim/i.test(ft))ty='Denim';
 var sp=/spandex|elastane|lycra/i.test(ft);
 var sub='';
-var subs=['Corduroy','Twill','Poplin','Oxford','Satin','Flannel','Canvas','Chambray','Chiffon','Voile','Dobby','Jacquard','Single Jersey','Jersey','Interlock','Rib','French Terry','Fleece','Pique','Ponte','Velour','Mesh','Denim','Crepe','Gauze','Lawn','Sateen','Velvet'];
+var subs=[
+'Double Weave- Double Face','Double Weave- Double Weave','Double Weave- Others','Double Weave',
+'Corduroy- Corduroy','Corduroy- Others','Corduroy',
+'Satin- Sateen','Satin- Satin','Satin- Moleskin','Satin',
+'Oxford- Basketweave','Oxford- Pin Point','Oxford- Others','Oxford',
+'Twill- 2x1 LHT','Twill- 2x1 RHT','Twill- 2x2RHT','Twill- 3x1 LHT','Twill- Others','Twill- Slub','Twill',
+'Plain- Others','Plain Weave','Plain',
+'Swiss Dot Dobby','Dobby',
+'Texture- Ripstop','Ripstop',
+'Herringbone','Houndstooth','Seersucker','Flannel','Chambray','Chiffon',
+'Poplin','Canvas','Crepe','Gauze','Lawn','Sateen','Velvet',
+'Taffeta','Georgette','Organza','Voile','Faille','Melton',
+'Bedford cord','Cavalry','Tricotine','Tweed','Eyelet',
+'Single Jersey Jacquard- Boucle','Single Jersey Jacquard- Crepe','Single Jersey Jacquard- Pointelle',
+'Single Jersey Jacquard- Quilted','Single Jersey Jacquard- Seersucker','Single Jersey Jacquard- Single Jersey Jacquard',
+'Single Jersey- Drop Needle','Single Jersey- Single Jersey','Single Jersey - Pointelle','Single Jersey',
+'Double Jersey Jacquard - Towel Terry','Double Jersey Jacquard – Double Jersey Jacquard',
+'Double Jersey Jacquard- Body Mapping','Double Jersey Jacquard- Boucle','Double Jersey Jacquard- Quilted',
+'Double Jersey Jacquard','Double Jacquard',
+'Double Knit - French Terry','Double Knit - Terry','Double Knit',
+'Interlock - Pointelle','Interlock - Spacer','Interlock – Interlock','Interlock – Ottoman',
+'Interlock – Ponte de Roma','Interlock- Drop Needle','Interlock',
+'Rib - 1X1','Rib – 2x2','Rib – 3x3','Rib – 5x2','Rib – 5x3','Rib – Flat Back',
+'Rib – French','Rib – Pointelle','Rib – Variegated','Rib- Others','Rib',
+'Fleece - 2 thread Fleece','Fleece - 3 thread fleece','Fleece - other','Fleece',
+'Terry - 2 thread French Terry','Terry - 3 thread French Terry','Terry – Other','Terry – Towel','Terry- French','Terry',
+'Micro Fleece - Jacquard','Micro Fleece - Micro Fleece','Micro Fleece - Other','Micro Fleece',
+'Velour - Warp Knit','Velour – Warp Knit','Velour – Weft Knit','Velour',
+'Mesh - warp knit jacquard','Mesh - warp knit','Mesh - weft knit jacquard','Mesh - weft knit','Mesh- Interlock','Mesh- Lace','Mesh',
+'Warp Knit - Jacquard','Warp Knit - Lace','Warp Knit - Raschel','Knit - Warp','Warp Knit',
+'Tricot- Tricot','Tricot – Powernet','Tricot Knit','Tricot',
+'Jersey Slub','Jersey Stretch','Jersey',
+'Pique','Waffle','Sherpa','Lace','Thermal','Pointelle','Boucle',
+'French Terry','Flat Knit','Raschel Knit','Drop Needle Rib',
+'Ponte de Roma','Ponte','Jacquard',
+'Others- Faux Fur','Bonded','Denim'
+];
 for(var i=0;i<subs.length;i++){if(ft.toLowerCase().includes(subs[i].toLowerCase())){sub=subs[i];break;}}
 var wt=0;
 var wm=ft.match(/(\d+(?:\.\d+)?)\s*(g\/m2|gsm|gm)/i);
@@ -461,7 +497,31 @@ navigator.clipboard.writeText(updatedCmt).catch(function(){var a=document.create
 toast('Comment copied with Actual info! Fill Season to save.','var(--bl)');
 }
 
-function init(){try{var f=localStorage.getItem('gfi');if(f)FI=JSON.parse(f);var h=localStorage.getItem('ghi');if(h)hist=JSON.parse(h);var t=localStorage.getItem('gtl');if(t){var o=JSON.parse(t);document.getElementById('tA').value=o.a||document.getElementById('tA').value;document.getElementById('tS').value=o.s||document.getElementById('tS').value;}}catch(e){}upSt();renH();showFI('knit');}
+function init(){
+/* 1. Load fabric-data.json from same folder (GitHub Pages) */
+fetch('fabric-data.json')
+  .then(function(r){return r.json();})
+  .then(function(data){
+    FI.knit=data.knit||[];
+    FI.woven=data.woven||[];
+    FI.denim=data.denim||[];
+    /* Override with user-uploaded if available */
+    try{var f=localStorage.getItem('gfi');if(f){var s=JSON.parse(f);if(s.knit&&s.knit.length)FI.knit=s.knit;if(s.woven&&s.woven.length)FI.woven=s.woven;if(s.denim&&s.denim.length)FI.denim=s.denim;}}catch(e){}
+    upSt();showFI('knit');
+    toast('布料資料已載入 Knit:'+FI.knit.length+' Woven:'+FI.woven.length+' Denim:'+FI.denim.length,'var(--gn)');
+  })
+  .catch(function(){
+    /* Fallback: try localStorage only */
+    try{var f=localStorage.getItem('gfi');if(f)FI=JSON.parse(f);}catch(e){}
+    upSt();showFI('knit');
+  });
+/* Load history & templates (no need to wait for fabric) */
+try{
+  var h=localStorage.getItem('ghi');if(h)hist=JSON.parse(h);
+  var t=localStorage.getItem('gtl');if(t){var o=JSON.parse(t);document.getElementById('tA').value=o.a||document.getElementById('tA').value;document.getElementById('tS').value=o.s||document.getElementById('tS').value;}
+}catch(e){}
+renH();
+}
 function save(){try{localStorage.setItem('gfi',JSON.stringify(FI));localStorage.setItem('ghi',JSON.stringify(hist));}catch(e){}}
 function upSt(){document.getElementById('sK').textContent=FI.knit.length;document.getElementById('sW').textContent=FI.woven.length;document.getElementById('sD').textContent=FI.denim.length;document.getElementById('sH').textContent=hist.length;}
 function toast(m,c){var t=document.getElementById('tst');t.textContent=m;t.style.background=c||'var(--gn)';t.style.display='block';setTimeout(function(){t.style.display='none';},3000);}
