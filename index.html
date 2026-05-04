@@ -353,15 +353,21 @@ var REC_COLS=[
 ];
 
 /* ═══ Composition Parser & Scorer ═══ */
-var FIBER_NORM={'cotton':'Cotton','polyester':'Polyester','nylon':'Nylon','nylon 6':'Nylon','nylon 66':'Nylon',
-'spandex':'Spandex','elastane':'Spandex','lycra':'Spandex','viscose':'Viscose','rayon':'Rayon','modal':'Modal',
-'lyocell':'Lyocell','tencel':'Lyocell','wool':'Wool','linen':'Linen','silk':'Silk','acrylic':'Acrylic','hemp':'Hemp','ramie':'Ramie','cashmere':'Cashmere'};
+var FIBER_NORM={
+'cotton':'Cotton','polyester':'Polyester',
+'nylon 6':'Nylon','nylon 66':'Nylon','nylon':'Nylon',
+'spandex':'Spandex','elastane':'Spandex','lycra':'Spandex',
+'viscose rayon':'Rayon','viscose':'Rayon','rayon':'Rayon',  /* Viscose = Rayon = same fiber */
+'modal':'Modal','lyocell':'Lyocell','tencel':'Lyocell',
+'wool':'Wool','linen':'Linen','silk':'Silk',
+'acrylic':'Acrylic','hemp':'Hemp','ramie':'Ramie','cashmere':'Cashmere'
+};
 function parseComp(str){
 if(!str)return[];var parts=str.split(/,\s*/);var res=[];
 parts.forEach(function(p){var m=p.match(/(\d+(?:\.\d+)?)\s*%\s*(.*)/);if(m){var pct=parseFloat(m[1]);var raw=m[2].toLowerCase().replace(/\(.*?\)/g,'').trim();var fiber='Other';for(var k in FIBER_NORM){if(raw.includes(k)){fiber=FIBER_NORM[k];break;}}var ex=res.find(function(r){return r.fiber===fiber;});if(ex)ex.pct+=pct;else res.push({fiber:fiber,pct:pct});}});
 res.sort(function(a,b){return b.pct-a.pct;});return res;
 }
-function isGroupA(f){return f==='Cotton'||f==='Polyester'||f==='Rayon';}
+function isGroupA(f){return f==='Cotton'||f==='Polyester'||f==='Rayon'||f==='Modal'||f==='Lyocell'||f==='Nylon';}
 function compScore(srcParsed,candParsed,hasSp){
 var tol=hasSp?0.05:0.10;
 var srcMain=srcParsed.filter(function(c){return c.fiber!=='Spandex';});
