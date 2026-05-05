@@ -585,11 +585,24 @@ if(results.length<5&&srcParsed.length>0&&srcParsed[0]&&isGroupA(srcParsed[0].fib
 return results;
 }
 /* ═══ parseFT — with oz conversion ═══ */
+function typeFromSubtype(sub, ft){
+var s=sv(sub).toLowerCase();
+var x=sv(ft).toLowerCase();
+/* Material Subtype is the source of truth for Knit / Woven / Denim.
+   Dye method words like Piece Dye / Yarn Dye must NOT force Woven. */
+var knitSubs=['single jersey','double jersey','double jacquard','double knit','interlock','rib','fleece','terry','micro fleece','velour','mesh','warp knit','knit - warp','tricot','jersey','pique','waffle','sherpa','thermal','pointelle','boucle','french terry','flat knit','raschel knit','drop needle rib','ponte','ponte de roma'];
+var wovenSubs=['double weave','corduroy','satin','sateen','oxford','twill','plain weave','plain','dobby','ripstop','herringbone','houndstooth','seersucker','flannel','chambray','chiffon','poplin','canvas','crepe','gauze','lawn','velvet','taffeta','georgette','organza','voile','faille','melton','bedford cord','cavalry','tricotine','tweed','eyelet'];
+if(s==='denim'||/\bdenim\b/.test(x))return 'Denim';
+for(var i=0;i<knitSubs.length;i++){if(s.includes(knitSubs[i]))return 'Knit';}
+for(var j=0;j<wovenSubs.length;j++){if(s.includes(wovenSubs[j]))return 'Woven';}
+/* Lace can exist in different libraries, but in our input if it is stretch/denier lace, treat it as Knit. */
+if(s==='lace'&&/spandex|elastane|lycra|denier/i.test(ft))return 'Knit';
+return '';
+}
+
 function parseFT(ft){
+ft=sv(ft);
 var ty='';
-if(/\(Woven\)|,\s*woven\b|\bwoven\b|plain[\s\-]weave|\bplain\b(?!\s*jersey)|twill\b|poplin\b|seersucker\b|oxford\s*cloth|broadcloth|\bcanvas\b|\bchiffon\b|\bvoile\b|\bdobby\b|\bjacquard\b(?!\s*knit)|\bcrepe\b|\bgauze\b|\blawn\b|\bsateen\b|\bvelvet\b|\bcorduroy\b|\bflannel\b|\bchambray\b|\bsatin\b|\btaffeta\b|\bgeorgette\b|\borganza\b|\bripstop\b|\bherringbone\b|\bmuslin\b|\bcharmeuse\b|\bhabutai\b|\bPiece\s*Dye\b|\bYarn\s*Dye\b/i.test(ft))ty='Woven';
-else if(/\(Knit\)|,\s*knit\b|(?<!\w)jersey(?!\s*weave)|\binterlock\b|\brib\b|\bfleece\b|\bpique\b|\bterry\b|\bfrench\s*terry\b|\bsweatshirt\b|\bponti\b|\bponte\b|\bvelour\b/i.test(ft))ty='Knit';
-else if(/denim/i.test(ft))ty='Denim';
 var sp=/spandex|elastane|lycra/i.test(ft);
 var sub='';
 var subs=[
@@ -631,6 +644,16 @@ var subs=[
 'Others- Faux Fur','Bonded','Denim'
 ];
 for(var i=0;i<subs.length;i++){if(ft.toLowerCase().includes(subs[i].toLowerCase())){sub=subs[i];break;}}
+
+/* First decide Type from Material Subtype. This prevents Fleece from being parsed as Woven just because text contains Piece Dye. */
+ty=typeFromSubtype(sub,ft);
+
+/* If subtype cannot decide type, then use explicit type words / weave keywords. */
+if(!ty){
+  if(/\(Knit\)|,\s*knit\b|(?<!\w)jersey(?!\s*weave)|\binterlock\b|\brib\b|\bfleece\b|\bpique\b|\bterry\b|\bfrench\s*terry\b|\bsweatshirt\b|\bponti\b|\bponte\b|\bvelour\b/i.test(ft))ty='Knit';
+  else if(/\(Woven\)|,\s*woven\b|\bwoven\b|plain[\s\-]weave|\bplain\b(?!\s*jersey)|twill\b|poplin\b|seersucker\b|oxford\s*cloth|broadcloth|\bcanvas\b|\bchiffon\b|\bvoile\b|\bdobby\b|\bjacquard\b(?!\s*knit)|\bcrepe\b|\bgauze\b|\blawn\b|\bsateen\b|\bvelvet\b|\bcorduroy\b|\bflannel\b|\bchambray\b|\bsatin\b|\btaffeta\b|\bgeorgette\b|\borganza\b|\bripstop\b|\bherringbone\b|\bmuslin\b|\bcharmeuse\b|\bhabutai\b/i.test(ft))ty='Woven';
+  else if(/denim/i.test(ft))ty='Denim';
+}
 var wt=0;
 var wm=ft.match(/(\d+(?:\.\d+)?)\s*(g\/m2|gsm|gm)/i);
 if(wm){wt=parseFloat(wm[1]);}
@@ -638,8 +661,6 @@ else{var ozm=ft.match(/(\d+(?:\.\d+)?)\s*(oz\/?s?q?\s*y(?:d|ard)|oz\/yd2|osy)/i)
 var comp='';
 ['Cotton','Polyester','Nylon','Viscose','Modal','Lyocell','Wool','Linen','Rayon','Tencel','Spandex','Elastane','Lycra','Acrylic'].forEach(function(w){if(ft.toLowerCase().includes(w.toLowerCase()))comp+=(comp?', ':'')+w;});
 var _parsed=parseComp(ft);
-/* If input says Lace + stretch yarn/denier but no explicit type, treat as Knit for SOP hard filter. */
-if(!ty&&sub==='Lace'&&/spandex|elastane|lycra|denier/i.test(ft))ty='Knit';
 return{ty:ty,hasSp:sp,sub:sub,wt:wt,comp:comp,_parsed:_parsed};
 }
 
