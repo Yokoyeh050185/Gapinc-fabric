@@ -476,18 +476,18 @@ else if(cr.ty==='Denim'||cr.ty==='denim')pool=[].concat(FI.denim);
 else pool=[].concat(FI.knit,FI.woven,FI.denim);
 if(cr.hasSp===true)pool=pool.filter(function(f){return f.hasSp===true;});
 else if(cr.hasSp===false)pool=pool.filter(function(f){return f.hasSp===false;});
-if(cr.brand)pool=pool.filter(function(f){return f.brand&&f.brand.toLowerCase().includes(cr.brand.toLowerCase());});
+if(cr.brand)pool=pool.filter(function(f){return sv(f.brand).toLowerCase().includes(sv(cr.brand).toLowerCase());});
 pool=pool.filter(function(f){return!(f.desc||'').toUpperCase().includes('DO NOT USE')&&!(f.desc||'').toUpperCase().includes('INACTIVE');});
 var srcParsed=cr._parsed||parseComp(cr.comp||'');
 var results=pool.map(function(f){
 var sc=0;
-if(cr.sub){var cs=cr.sub.toLowerCase(),fs=(f.sub||'').toLowerCase();if(fs===cs)sc+=40;else if(fs.includes(cs)||cs.includes(fs))sc+=25;else if((f.name||'').toLowerCase().includes(cs))sc+=15;}
+if(cr.sub){var cs=sv(cr.sub).toLowerCase(),fs=sv(f.sub).toLowerCase();if(fs===cs)sc+=40;else if(fs.includes(cs)||cs.includes(fs))sc+=25;else if(sv(f.name).toLowerCase().includes(cs))sc+=15;}
 if(cr.wt>0&&f.wt>0){var d=Math.abs(f.wt-cr.wt)/cr.wt;if(d<=0.15)sc+=30*(1-d/0.15);else if(d<=0.3)sc+=10*(1-d/0.3);}else if(cr.wt===0)sc+=2;
 if(srcParsed.length>0){var candParsed=parseComp(f.comp);var cs2=compScore(srcParsed,candParsed,cr.hasSp===true);sc+=cs2.sc;}
 return Object.assign({},f,{sc:Math.round(sc)});
 }).filter(function(s){return s.sc>0;}).sort(function(a,b){return b.sc-a.sc;});
 if(results.length<5&&srcParsed.length>0&&srcParsed[0]&&isGroupA(srcParsed[0].fiber)){
-var relaxed=pool.map(function(f){var sc=0;if(cr.sub){var cs=cr.sub.toLowerCase(),fs=(f.sub||'').toLowerCase();if(fs===cs)sc+=40;else if(fs.includes(cs)||cs.includes(fs))sc+=25;}if(cr.wt>0&&f.wt>0){var dd=Math.abs(f.wt-cr.wt)/cr.wt;if(dd<=0.15)sc+=30*(1-dd/0.15);}var candP=parseComp(f.comp);var cs2=compScore(srcParsed,candP,cr.hasSp===true);if(cs2.grpA)sc+=cs2.sc;return Object.assign({},f,{sc:Math.round(sc),grpA:true});}).filter(function(s){return s.sc>0&&s.grpA;}).sort(function(a,b){return b.sc-a.sc;});
+var relaxed=pool.map(function(f){var sc=0;if(cr.sub){var cs=sv(cr.sub).toLowerCase(),fs=sv(f.sub).toLowerCase();if(fs===cs)sc+=40;else if(fs.includes(cs)||cs.includes(fs))sc+=25;}if(cr.wt>0&&f.wt>0){var dd=Math.abs(f.wt-cr.wt)/cr.wt;if(dd<=0.15)sc+=30*(1-dd/0.15);}var candP=parseComp(f.comp);var cs2=compScore(srcParsed,candP,cr.hasSp===true);if(cs2.grpA)sc+=cs2.sc;return Object.assign({},f,{sc:Math.round(sc),grpA:true});}).filter(function(s){return s.sc>0&&s.grpA;}).sort(function(a,b){return b.sc-a.sc;});
 var existRDs=results.map(function(r){return r.rd;});relaxed.forEach(function(r){if(!existRDs.includes(r.rd))results.push(r);});results.sort(function(a,b){return b.sc-a.sc;});
 }
 return results;
@@ -628,27 +628,100 @@ function genC(ty,f,act){var tpl=ty==='a'?document.getElementById('tA').value:doc
 /* ═══ FI Load + Browser ═══ */
 function ldFI(ty){var ids={knit:'fK',woven:'fW',denim:'fD'};var file=document.getElementById(ids[ty]).files[0];if(!file){toast('Select file','var(--or)');return;}var rd=new FileReader();rd.onload=function(e){try{var wb=XLSX.read(e.target.result,{type:'array'});var ws=wb.Sheets[wb.SheetNames[0]];var rows=XLSX.utils.sheet_to_json(ws,{defval:''});FI[ty]=rows.map(function(r){return normR(r,ty);}).filter(function(r){return r.rd;});save();upSt();showFI(ty);toast(ty.toUpperCase()+' loaded: '+FI[ty].length);}catch(er){toast('Error: '+er.message,'var(--rd)');}};rd.readAsArrayBuffer(file);}
 function normR(r,ty){var brand=r['Originating Brands']||'';var rd=String(r['RD Number']||'').replace(/^RD#?/i,'').trim();var desc=r['Material Brief Description']||'';var name=r['Material Name']||'';var sub=r['Material Subtype']||'';var wt=parseFloat(r['Before Wash Weight'])||0;var uom=r['Weight UOM']||'g/m2';var comp=r['Composition']||'';var cf=r['Composition Fibers']||'';var spx=r['Spandex Content']||'';var hasSp=/spandex|elastane|lycra/i.test(comp)||(spx&&!/without/i.test(spx));if(uom&&/oz/i.test(uom)&&wt>0)wt=Math.round(wt*33.906);return{brand:brand,rd:rd,desc:desc,name:name,sub:sub,wt:wt,comp:comp,cf:cf,hasSp:hasSp,ty:ty};}
-function showFI(ty){curFI=ty;document.getElementById('fcK').textContent=FI.knit.length;document.getElementById('fcW').textContent=FI.woven.length;document.getElementById('fcD').textContent=FI.denim.length;document.querySelectorAll('.fi-tab').forEach(function(b){b.classList.remove('a');});var tid={knit:'ftK',woven:'ftW',denim:'ftD'};document.getElementById(tid[ty]).classList.add('a');var q=(document.getElementById('fiq')||{}).value||'';var ql=q.toLowerCase();var data=FI[ty];if(q)data=data.filter(function(f){return f.rd.includes(ql)||(f.name||'').toLowerCase().includes(ql)||(f.comp||'').toLowerCase().includes(ql)||(f.sub||'').toLowerCase().includes(ql)||(f.brand||'').toLowerCase().includes(ql);});var h='<p style="font-size:.82em;color:var(--t2);margin-bottom:6px">'+ty.toUpperCase()+': '+data.length+' / '+FI[ty].length+'</p><table class="dt"><thead><tr><th>RD</th><th>Brand</th><th>Subtype</th><th>Name</th><th>Composition</th><th>Weight</th><th>Spandex</th><th></th></tr></thead><tbody>';data.forEach(function(f){var ri=FI[ty].indexOf(f);h+='<tr><td contenteditable onblur="edFI(\''+ty+'\','+ri+',\'rd\',this.textContent)"><b>'+f.rd+'</b></td><td contenteditable onblur="edFI(\''+ty+'\','+ri+',\'brand\',this.textContent)">'+f.brand+'</td><td contenteditable onblur="edFI(\''+ty+'\','+ri+',\'sub\',this.textContent)">'+f.sub+'</td><td contenteditable onblur="edFI(\''+ty+'\','+ri+',\'name\',this.textContent)" style="max-width:180px;font-size:.82em">'+f.name+'</td><td contenteditable onblur="edFI(\''+ty+'\','+ri+',\'comp\',this.textContent)" style="max-width:220px;font-size:.8em">'+f.comp+'</td><td contenteditable onblur="edFI(\''+ty+'\','+ri+',\'wt\',this.textContent)">'+f.wt+'</td><td>'+(f.hasSp?'<span class="bdg ba">Yes</span>':'No')+'</td><td><button class="btn bsm br" onclick="delFI(\''+ty+'\','+ri+')">Del</button></td></tr>';});h+='</tbody></table>';document.getElementById('fit').innerHTML=h;}
+function showFI(ty){
+curFI=ty;document.getElementById('fcK').textContent=FI.knit.length;document.getElementById('fcW').textContent=FI.woven.length;document.getElementById('fcD').textContent=FI.denim.length;
+document.querySelectorAll('.fi-tab').forEach(function(b){b.classList.remove('a');});var tid={knit:'ftK',woven:'ftW',denim:'ftD'};document.getElementById(tid[ty]).classList.add('a');
+var q=sv((document.getElementById('fiq')||{}).value);var ql=q.toLowerCase();var data=FI[ty]||[];
+if(q)data=data.filter(function(f){return sv(f.rd).toLowerCase().includes(ql)||sv(f.name).toLowerCase().includes(ql)||sv(f.comp).toLowerCase().includes(ql)||sv(f.sub).toLowerCase().includes(ql)||sv(f.brand).toLowerCase().includes(ql);});
+var h='<p style="font-size:.82em;color:var(--t2);margin-bottom:6px">'+ty.toUpperCase()+': '+data.length+' / '+(FI[ty]||[]).length+'</p><table class="dt"><thead><tr><th>RD</th><th>Brand</th><th>Subtype</th><th>Name</th><th>Composition</th><th>Weight</th><th>Spandex</th><th></th></tr></thead><tbody>';
+data.forEach(function(f){var ri=FI[ty].indexOf(f);h+='<tr><td contenteditable onblur="edFI(\''+ty+'\','+ri+',\'rd\',this.textContent)"><b>'+esc(sv(f.rd))+'</b></td><td contenteditable onblur="edFI(\''+ty+'\','+ri+',\'brand\',this.textContent)">'+esc(sv(f.brand))+'</td><td contenteditable onblur="edFI(\''+ty+'\','+ri+',\'sub\',this.textContent)">'+esc(sv(f.sub))+'</td><td contenteditable onblur="edFI(\''+ty+'\','+ri+',\'name\',this.textContent)" style="max-width:180px;font-size:.82em">'+esc(sv(f.name))+'</td><td contenteditable onblur="edFI(\''+ty+'\','+ri+',\'comp\',this.textContent)" style="max-width:220px;font-size:.8em">'+esc(sv(f.comp))+'</td><td contenteditable onblur="edFI(\''+ty+'\','+ri+',\'wt\',this.textContent)">'+esc(sv(f.wt))+'</td><td>'+(f.hasSp?'<span class="bdg ba">Yes</span>':'No')+'</td><td><button class="btn bsm br" onclick="delFI(\''+ty+'\','+ri+')">Del</button></td></tr>';});
+h+='</tbody></table>';document.getElementById('fit').innerHTML=h;
+}
 function edFI(ty,idx,key,val){if(key==='wt')FI[ty][idx][key]=parseFloat(val)||0;else FI[ty][idx][key]=val.trim();}
 function delFI(ty,idx){if(!confirm('Delete?'))return;FI[ty].splice(idx,1);save();upSt();showFI(ty);toast('Deleted','var(--or)');}
 function saveFI(){save();upSt();showFI(curFI);toast('FI saved!');}
 
-/* ═══ Search ═══ */
+/* ═══ Search Logic ═══
+   Priority: 1) RD exists in Knit/Woven/Denim Actual Index
+             2) If not, check shared/local History
+             3) If not, parse fabric text and recommend substitute fabric
+*/
+function normRD(v){return sv(v).replace(/^RD#?/i,'').replace(/^0+/,'').trim();}
+function allFI(){return [].concat(FI.knit||[],FI.woven||[],FI.denim||[]);}
+function extractRDsFromText(q){
+  var text=sv(q);
+  var arr=[];
+  (text.match(/RD#?\s*\d{5,7}/gi)||[]).forEach(function(m){arr.push(m.replace(/RD#?/i,'').trim());});
+  (text.match(/(?<![A-Za-z0-9])(\d{5,7})(?![0-9])/g)||[]).forEach(function(m){arr.push(m.trim());});
+  return arr.filter(function(v,i,a){return v&&a.indexOf(v)===i;});
+}
+function findActualByRDs(rdNums){
+  if(!rdNums||!rdNums.length)return[];
+  var all=allFI();
+  var found=[];
+  rdNums.forEach(function(n){
+    var nn=normRD(n);
+    all.forEach(function(f){if(normRD(f.rd)===nn&&found.indexOf(f)<0)found.push(f);});
+  });
+  return found;
+}
+function findHistoryByQuery(q,rdNums){
+  hist=(hist||[]).map(normHistRow);
+  var ql=sv(q).toLowerCase();
+  var rdSet=(rdNums||[]).map(normRD).filter(Boolean);
+  return hist.filter(function(h){
+    var orRD=normRD(h.or), srRD=normRD(h.sr), s2RD=normRD(h.s2);
+    if(rdSet.length){
+      return rdSet.some(function(r){return orRD===r||srRD===r||s2RD===r;});
+    }
+    return sv(h.st).toLowerCase().includes(ql)||sv(h.or).toLowerCase().includes(ql)||sv(h.sr).toLowerCase().includes(ql)||sv(h.sd).toLowerCase().includes(ql);
+  });
+}
+function parsedFromQuery(q){
+  var cleaned=cleanFabricForParse(q);
+  var parsed=parseFT(cleaned);
+  if(!parsed.ty&&!parsed.wt&&!parsed.comp&&!parsed.sub){parsed=parseFT(q);}
+  return parsed;
+}
 function doS(){
 var q=document.getElementById('qi').value.trim();if(!q){toast('Enter search','var(--or)');return;}
-var o=document.getElementById('sr');_cmts=[];
-var _rdPre=(q.match(/RD#?[0-9]{5,7}/gi)||[]);var rdM=_rdPre.map(function(m){return m.replace(/^RD#?/i,'');});if(rdM.length===0){var rdPlain=(q.match(/(?<![A-Za-z0-9])([0-9]{5,7})(?![0-9])/g)||[]);rdPlain.forEach(function(v){if(!rdM.includes(v))rdM.push(v);});}var rdNums=rdM.filter(function(v,i,a){return a.indexOf(v)===i;});
-var act=[];if(rdNums.length>0){var all=[].concat(FI.knit,FI.woven,FI.denim);rdNums.forEach(function(n){act=act.concat(all.filter(function(f){return f.rd.replace(/^0+/,'')===n.replace(/^0+/,'');}));});}
-var ql=q.toLowerCase();var qrd=ql.replace(/rd#?/i,'');var hi=hist.filter(function(h){h=normHistRow(h);return sv(h.st).toLowerCase().includes(ql)||sv(h.or).toLowerCase().includes(qrd)||sv(h.sr).toLowerCase().includes(qrd);});
-var parsed=parseFT(cleanFabricForParse(q));var rec=[];
+var o=document.getElementById('sr');_cmts=[];_actMap['srRec']=null;
+var rdNums=extractRDsFromText(q);
+var act=findActualByRDs(rdNums);
+var hi=[];
+var parsed=null;
 var rec=[];
-if(act.length===0&&hi.length===0&&(parsed.wt>0||parsed.comp||parsed.sub))rec=getRec(parsed).slice(0,30);
+
+/* Step 1: If RD exists in Fabric Index, stop here and show Actual */
+if(act.length===0){
+  /* Step 2: Only when Actual not found, search History */
+  hi=findHistoryByQuery(q,rdNums);
+}
+if(act.length===0&&hi.length===0){
+  /* Step 3: Only when Actual + History are not found, recommend */
+  parsed=parsedFromQuery(q);
+  if(parsed.wt>0||parsed.comp||parsed.sub||parsed.ty){rec=getRec(parsed).slice(0,30);}
+}
+
 var h='';
-if(act.length>0){h+='<div class="cd"><h3><span class="bdg ba">Actual</span> '+act.length+'</h3><table class="dt"><thead><tr><th>RD</th><th>Brand</th><th>Subtype</th><th>Name</th><th>Composition</th><th>Weight</th><th></th></tr></thead><tbody>';act.forEach(function(f){var ci=_cmts.length;_cmts.push(genC('a',f));h+='<tr><td><b>'+f.rd+'</b></td><td><span class="bdg bb">'+f.brand+'</span></td><td>'+f.sub+'</td><td>'+f.name+'</td><td style="max-width:250px;font-size:.8em">'+f.comp+'</td><td>'+f.wt+'</td><td><button class="btn bsm bp" onclick="cpC('+ci+')">Copy</button></td></tr>';});h+='</tbody></table></div>';}
-if(hi.length>0){h+='<div class="cd"><h3><span class="bdg bh">History</span> '+hi.length+'</h3><table class="dt"><thead><tr><th>Style</th><th>Season</th><th>Orig RD</th><th>Sub RD</th><th>Desc</th><th></th></tr></thead><tbody>';hi.forEach(function(r){var ci=_cmts.length;_cmts.push(genC('s',{rd:r.sr,name:r.sd,comp:r.sd,wt:'',sub:''}));h+='<tr><td>'+r.st+'</td><td>'+r.se+'</td><td>'+r.or+'</td><td><b>'+r.sr+'</b></td><td style="font-size:.85em">'+r.sd+'</td><td><button class="btn bsm bp" onclick="cpC('+ci+')">Copy</button></td></tr>';});h+='</tbody></table></div>';}
-if(rec.length>0){h+='<div class="cd"><h3><span class="bdg bo">Recommend</span> '+rec.length+'</h3><div style="font-size:.82em;color:var(--t2);margin-bottom:8px"><b>Parsed:</b> Type=<span class="tg">'+(parsed.ty||'?')+'</span> Spandex='+(parsed.hasSp?'Yes':'No')+' Subtype=<span class="tg">'+(parsed.sub||'?')+'</span> Weight='+parsed.wt+'g/m2</div><div id="srRec"></div></div>';}
-if(!h)h='<div class="emp">No results.</div>';o.innerHTML=h;
-if(rec.length>0)regTbl('srRec',rec,REC_COLS,'srRec',true);
+if(act.length>0){
+  h+='<div class="cd"><h3><span class="bdg ba">Actual</span> '+act.length+'</h3><div style="font-size:.82em;color:var(--t2);margin-bottom:8px">RD found in Knit / Woven / Denim index. History and Recommend are skipped.</div><table class="dt"><thead><tr><th>RD</th><th>Brand</th><th>Type</th><th>Subtype</th><th>Name</th><th>Composition</th><th>Weight</th><th></th></tr></thead><tbody>';
+  act.forEach(function(f){var ci=_cmts.length;_cmts.push(genC('a',f));h+='<tr><td><b>'+esc(sv(f.rd))+'</b></td><td><span class="bdg bb">'+esc(sv(f.brand))+'</span></td><td><span class="tg">'+esc(sv(f.ty))+'</span></td><td>'+esc(sv(f.sub))+'</td><td>'+esc(sv(f.name))+'</td><td style="max-width:250px;font-size:.8em">'+esc(sv(f.comp))+'</td><td>'+esc(sv(f.wt))+'</td><td><button class="btn bsm bp" onclick="cpC('+ci+')">Copy</button></td></tr>';});
+  h+='</tbody></table></div>';
+}
+else if(hi.length>0){
+  h+='<div class="cd"><h3><span class="bdg bh">History</span> '+hi.length+'</h3><div style="font-size:.82em;color:var(--t2);margin-bottom:8px">RD was not found in Fabric Index, but matched History. Recommend is skipped.</div><table class="dt"><thead><tr><th>Style</th><th>Season</th><th>Orig RD</th><th>Sub RD</th><th>Desc</th><th></th></tr></thead><tbody>';
+  hi.forEach(function(r){var ci=_cmts.length;_cmts.push(genC('s',{rd:r.sr,name:r.sd,comp:r.sd,wt:'',sub:''}));h+='<tr><td>'+esc(sv(r.st))+'</td><td>'+esc(sv(r.se))+'</td><td>'+esc(sv(r.or))+'</td><td><b>'+esc(sv(r.sr))+'</b>'+(r.s2?' / '+esc(sv(r.s2)):'')+'</td><td style="font-size:.85em">'+esc(sv(r.sd))+'</td><td><button class="btn bsm bp" onclick="cpC('+ci+')">Copy</button></td></tr>';});
+  h+='</tbody></table></div>';
+}
+else if(rec.length>0){
+  h+='<div class="cd"><h3><span class="bdg bo">Recommend</span> '+rec.length+'</h3><div style="font-size:.82em;color:var(--t2);margin-bottom:8px">RD was not found in Fabric Index or History, so the system recommends by parsed fabric text.<br><b>Parsed:</b> Type=<span class="tg">'+esc(parsed.ty||'?')+'</span> Spandex='+(parsed.hasSp?'Yes':'No')+' Subtype=<span class="tg">'+esc(parsed.sub||'?')+'</span> Weight='+esc(sv(parsed.wt))+'g/m2</div><div id="srRec"></div></div>';
+}
+else{
+  h='<div class="emp">No Actual RD / History / Recommendation found. Please include fabric type, composition, and weight for recommendation.</div>';
+}
+o.innerHTML=h;
+if(rec.length>0){_actMap['srRec']={st:q,ca:'',rd:rdNums[0]||'',ft:q,label:'',actualInfo:null};regTbl('srRec',rec,REC_COLS,'srRec',true);}
 }
 function clrS(){document.getElementById('qi').value='';document.getElementById('sr').innerHTML='';}
 
