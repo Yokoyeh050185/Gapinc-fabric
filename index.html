@@ -468,6 +468,18 @@ return{sc:Math.max(sc,0),grpA:grpA};
 }
 
 /* ═══ getRec — SOP: Type→Spandex→Subtype→Weight→Composition ═══ */
+function normSubText(v){
+  return sv(v).toLowerCase()
+    .replace(/[–—]/g,'-')
+    .replace(/\s+/g,' ')
+    .replace(/[^a-z0-9]+/g,' ')
+    .trim();
+}
+function isSubMatch(f,sub){
+  var cs=normSubText(sub);if(!cs)return false;
+  var fields=[f.sub,f.name,f.desc].map(normSubText);
+  return fields.some(function(fs){return fs===cs||fs.indexOf(cs)>=0||cs.indexOf(fs)>=0;});
+}
 function getRec(cr){
 var pool=[];
 if(cr.ty==='Knit'||cr.ty==='knit')pool=[].concat(FI.knit);
@@ -477,17 +489,28 @@ else pool=[].concat(FI.knit,FI.woven,FI.denim);
 if(cr.hasSp===true)pool=pool.filter(function(f){return f.hasSp===true;});
 else if(cr.hasSp===false)pool=pool.filter(function(f){return f.hasSp===false;});
 if(cr.brand)pool=pool.filter(function(f){return sv(f.brand).toLowerCase().includes(sv(cr.brand).toLowerCase());});
-pool=pool.filter(function(f){return!(f.desc||'').toUpperCase().includes('DO NOT USE')&&!(f.desc||'').toUpperCase().includes('INACTIVE');});
+pool=pool.filter(function(f){return!sv(f.desc).toUpperCase().includes('DO NOT USE')&&!sv(f.desc).toUpperCase().includes('INACTIVE');});
+
+/* If the query clearly parsed a subtype (ex: Lace), it should not recommend a different construction.
+   Use matching subtype/name/description as a hard priority whenever matching fabrics exist. */
+var subtypeLocked=false;
+if(cr.sub){
+  var subPool=pool.filter(function(f){return isSubMatch(f,cr.sub);});
+  if(subPool.length>0){pool=subPool;subtypeLocked=true;}
+}
+
 var srcParsed=cr._parsed||parseComp(cr.comp||'');
 var results=pool.map(function(f){
 var sc=0;
-if(cr.sub){var cs=sv(cr.sub).toLowerCase(),fs=sv(f.sub).toLowerCase();if(fs===cs)sc+=40;else if(fs.includes(cs)||cs.includes(fs))sc+=25;else if(sv(f.name).toLowerCase().includes(cs))sc+=15;}
+if(cr.sub){var cs=normSubText(cr.sub),fs=normSubText(f.sub),fn=normSubText(f.name),fd=normSubText(f.desc);if(fs===cs)sc+=80;else if(fs.includes(cs)||cs.includes(fs))sc+=65;else if(fn.includes(cs)||fd.includes(cs))sc+=50;}
 if(cr.wt>0&&f.wt>0){var d=Math.abs(f.wt-cr.wt)/cr.wt;if(d<=0.15)sc+=30*(1-d/0.15);else if(d<=0.3)sc+=10*(1-d/0.3);}else if(cr.wt===0)sc+=2;
 if(srcParsed.length>0){var candParsed=parseComp(f.comp);var cs2=compScore(srcParsed,candParsed,cr.hasSp===true);sc+=cs2.sc;}
 return Object.assign({},f,{sc:Math.round(sc)});
 }).filter(function(s){return s.sc>0;}).sort(function(a,b){return b.sc-a.sc;});
-if(results.length<5&&srcParsed.length>0&&srcParsed[0]&&isGroupA(srcParsed[0].fiber)){
-var relaxed=pool.map(function(f){var sc=0;if(cr.sub){var cs=sv(cr.sub).toLowerCase(),fs=sv(f.sub).toLowerCase();if(fs===cs)sc+=40;else if(fs.includes(cs)||cs.includes(fs))sc+=25;}if(cr.wt>0&&f.wt>0){var dd=Math.abs(f.wt-cr.wt)/cr.wt;if(dd<=0.15)sc+=30*(1-dd/0.15);}var candP=parseComp(f.comp);var cs2=compScore(srcParsed,candP,cr.hasSp===true);if(cs2.grpA)sc+=cs2.sc;return Object.assign({},f,{sc:Math.round(sc),grpA:true});}).filter(function(s){return s.sc>0&&s.grpA;}).sort(function(a,b){return b.sc-a.sc;});
+
+/* Only use Group A relaxed fallback when subtype was NOT locked. */
+if(!subtypeLocked&&results.length<5&&srcParsed.length>0&&srcParsed[0]&&isGroupA(srcParsed[0].fiber)){
+var relaxed=pool.map(function(f){var sc=0;if(cr.sub){var cs=normSubText(cr.sub),fs=normSubText(f.sub);if(fs===cs)sc+=80;else if(fs.includes(cs)||cs.includes(fs))sc+=65;}if(cr.wt>0&&f.wt>0){var dd=Math.abs(f.wt-cr.wt)/cr.wt;if(dd<=0.15)sc+=30*(1-dd/0.15);}var candP=parseComp(f.comp);var cs2=compScore(srcParsed,candP,cr.hasSp===true);if(cs2.grpA)sc+=cs2.sc;return Object.assign({},f,{sc:Math.round(sc),grpA:true});}).filter(function(s){return s.sc>0&&s.grpA;}).sort(function(a,b){return b.sc-a.sc;});
 var existRDs=results.map(function(r){return r.rd;});relaxed.forEach(function(r){if(!existRDs.includes(r.rd))results.push(r);});results.sort(function(a,b){return b.sc-a.sc;});
 }
 return results;
@@ -502,6 +525,7 @@ else if(/denim/i.test(ft))ty='Denim';
 var sp=/spandex|elastane|lycra/i.test(ft);
 var sub='';
 var subs=[
+'Lace',
 'Double Weave- Double Face','Double Weave- Double Weave','Double Weave- Others','Double Weave',
 'Corduroy- Corduroy','Corduroy- Others','Corduroy',
 'Satin- Sateen','Satin- Satin','Satin- Moleskin','Satin',
@@ -680,23 +704,18 @@ function findHistoryByQuery(q,rdNums){
       .map(function(v){return sv(v).toLowerCase();}).join(' ');
   }
 
-  /* 1) If query has RD, match Orig RD / Sub RD / Sub RD2 exactly first */
+  /* 1) If query has RD, match only exact History RD fields.
+     Do NOT use loose text/style matching here, otherwise an unrelated style
+     or description can incorrectly become History Sub. */
   if(rdSet.length){
     var exact=hist.filter(function(h){
-      var candidates=[h.or,h.sr,h.s2,h.od,h.sd,h.no].map(normRD).filter(Boolean);
+      var candidates=[h.or,h.sr,h.s2].map(normRD).filter(Boolean);
       return rdSet.some(function(r){return candidates.indexOf(r)>=0;});
     });
-    if(exact.length)return exact;
-
-    /* 2) Fallback: some old/shared sheet rows may store RD inside text columns instead of RD columns */
-    var loose=hist.filter(function(h){
-      var txt=rowText(h);
-      return rdSet.some(function(r){return txt.indexOf(r)>=0;});
-    });
-    if(loose.length)return loose;
+    return exact;
   }
 
-  /* 3) No RD or no exact RD match: search all normalized History fields */
+  /* 2) No RD: search all normalized History fields */
   if(!qText)return[];
   return hist.filter(function(h){return rowText(h).indexOf(qText)>=0;});
 }
@@ -945,6 +964,22 @@ if(topM||btmM){
 return[];
 }
 
+
+function findHistoryExactForBatch(row, ft){
+  hist=(hist||[]).map(normHistRow);
+  var candidates=[];
+  function add(v){var n=normRD(v);if(n&&candidates.indexOf(n)<0)candidates.push(n);}
+  add(row&&row.rd);
+  add(extractSegRD(ft||''));
+  extractRDsFromText(ft||'').forEach(add);
+  if(!candidates.length)return null;
+  return hist.find(function(h){
+    /* Batch Excel should match the original fabric RD exactly only.
+       Do not match style number, description, or substitute RD. */
+    return candidates.indexOf(normRD(h.or))>=0;
+  })||null;
+}
+
 function procRowFabric(row){
 var all=[].concat(FI.knit,FI.woven,FI.denim);
 var ft=row.ft||'';
@@ -956,6 +991,8 @@ if(parts.length>0){
     var segRD=extractSegRD(p.text)||extractSegRD(ft)||row.rd;
     var f=findRD(segRD);
     if(f){sub.status='actual';sub.match=f;return sub;}
+    var hmExact=findHistoryExactForBatch(sub,p.text);
+    if(hmExact){sub.status='history';sub.hm=hmExact;return sub;}
     if(!p.text){sub.status='skip';return sub;}
     var parseText=cleanFabricForParse(p.text);
     var prs=parseFT(parseText);sub.parsedFT=prs;sub.ft=parseText||p.text;
@@ -967,7 +1004,7 @@ var single=Object.assign({},row,{label:'',status:'recommend',match:null,hm:null,
 if(!ft&&!row.rd){single.status='skip';return[single];}
 var f2=findRD(row.rd)||findRD(extractSegRD(ft));
 if(f2){single.status='actual';single.match=f2;return[single];}
-var hm=hist.find(function(h){return h.or===row.rd||(h.st&&row.st&&h.st===row.st);});
+var hm=findHistoryExactForBatch(row,ft);
 if(hm){single.status='history';single.hm=hm;return[single];}
 if(ft){var parseText2=cleanFabricForParse(ft);var prs2=parseFT(parseText2);single.parsedFT=prs2;single.ft=parseText2||ft;single.recs=getRec(prs2).slice(0,30);}
 return[single];
