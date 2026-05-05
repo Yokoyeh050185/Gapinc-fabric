@@ -225,7 +225,7 @@ RD{actual_rd} {actual_name}, {actual_comp}, {actual_weight}
 <tr><td>1</td><td>Type</td><td>Knit→Knit, Woven→Woven, Denim→Denim</td><td><span class="bdg" style="background:rgba(231,76,60,.2);color:var(--rd)">Hard Filter</span></td></tr>
 <tr><td>2</td><td>Spandex</td><td>Must match</td><td><span class="bdg" style="background:rgba(231,76,60,.2);color:var(--rd)">Hard Filter</span></td></tr>
 <tr><td>3</td><td>Material Subtype</td><td>Same subtype preferred</td><td><span class="bdg bo">Score +40</span></td></tr>
-<tr><td>4</td><td>Weight</td><td>±15% range</td><td><span class="bdg bo">Score +30</span></td></tr>
+<tr><td>4</td><td>Weight</td><td>±15% range; over range ranks lower</td><td><span class="bdg bo">Score +30</span></td></tr>
 <tr><td>5</td><td>Composition</td><td>Primary fiber match, ±5%(w/ SP)/±10%(w/o SP) relative</td><td><span class="bdg bo">Score +45</span></td></tr>
 <tr><td>5b</td><td>Group A Fallback</td><td>Cotton↔Polyester↔Rayon (when &lt;5 results)</td><td><span class="bdg bh">Relaxed</span></td></tr>
 </tbody></table></div>
@@ -467,6 +467,26 @@ candMain.forEach(function(cf){if(!srcMain.find(function(s){return s.fiber===cf.f
 return{sc:Math.max(sc,0),grpA:grpA};
 }
 
+function compScoreSOP(srcParsed,candParsed){
+  var srcMain=srcParsed.filter(function(c){return c.fiber!=='Spandex';});
+  var candMain=candParsed.filter(function(c){return c.fiber!=='Spandex';});
+  if(srcMain.length===0||candMain.length===0)return 0;
+  if(srcMain[0].fiber!==candMain[0].fiber)return 0;
+  var diff=0;
+  srcMain.forEach(function(sf){
+    var cf=candMain.find(function(c){return c.fiber===sf.fiber;});
+    diff+=cf?Math.abs(sf.pct-cf.pct):sf.pct;
+  });
+  candMain.forEach(function(cf){
+    if(!srcMain.find(function(s){return s.fiber===cf.fiber;}))diff+=cf.pct;
+  });
+  return Math.max(0,45*(1-Math.min(diff,100)/100));
+}
+function spandexPct(parsed){
+  var sp=parsed.find(function(c){return c.fiber==='Spandex';});
+  return sp?sp.pct:0;
+}
+
 /* ═══ getRec — SOP: Type→Spandex→Subtype→Weight→Composition ═══ */
 function normSubText(v){
   return sv(v).toLowerCase()
@@ -482,40 +502,88 @@ function isSubMatch(f,sub){
 }
 function getRec(cr){
 var pool=[];
-if(cr.ty==='Knit'||cr.ty==='knit')pool=[].concat(FI.knit);
-else if(cr.ty==='Woven'||cr.ty==='woven')pool=[].concat(FI.woven);
-else if(cr.ty==='Denim'||cr.ty==='denim')pool=[].concat(FI.denim);
+var targetType=sv(cr.ty);
+
+/* Type = Hard Filter when the query can identify type.
+   If type is unknown, keep all types but do NOT give type score. */
+if(targetType==='Knit'||targetType==='knit')pool=[].concat(FI.knit);
+else if(targetType==='Woven'||targetType==='woven')pool=[].concat(FI.woven);
+else if(targetType==='Denim'||targetType==='denim')pool=[].concat(FI.denim);
 else pool=[].concat(FI.knit,FI.woven,FI.denim);
+
+/* Spandex = Must Match */
 if(cr.hasSp===true)pool=pool.filter(function(f){return f.hasSp===true;});
 else if(cr.hasSp===false)pool=pool.filter(function(f){return f.hasSp===false;});
+
 if(cr.brand)pool=pool.filter(function(f){return sv(f.brand).toLowerCase().includes(sv(cr.brand).toLowerCase());});
 pool=pool.filter(function(f){return!sv(f.desc).toUpperCase().includes('DO NOT USE')&&!sv(f.desc).toUpperCase().includes('INACTIVE');});
 
-/* If the query clearly parsed a subtype (ex: Lace), it should not recommend a different construction.
-   Use matching subtype/name/description as a hard priority whenever matching fabrics exist. */
-var subtypeLocked=false;
-if(cr.sub){
-  var subPool=pool.filter(function(f){return isSubMatch(f,cr.sub);});
-  if(subPool.length>0){pool=subPool;subtypeLocked=true;}
-}
-
 var srcParsed=cr._parsed||parseComp(cr.comp||'');
-var results=pool.map(function(f){
-var sc=0;
-if(cr.sub){var cs=normSubText(cr.sub),fs=normSubText(f.sub),fn=normSubText(f.name),fd=normSubText(f.desc);if(fs===cs)sc+=80;else if(fs.includes(cs)||cs.includes(fs))sc+=65;else if(fn.includes(cs)||fd.includes(cs))sc+=50;}
-if(cr.wt>0&&f.wt>0){var d=Math.abs(f.wt-cr.wt)/cr.wt;if(d<=0.15)sc+=30*(1-d/0.15);else if(d<=0.3)sc+=10*(1-d/0.3);}else if(cr.wt===0)sc+=2;
-if(srcParsed.length>0){var candParsed=parseComp(f.comp);var cs2=compScore(srcParsed,candParsed,cr.hasSp===true);sc+=cs2.sc;}
-return Object.assign({},f,{sc:Math.round(sc)});
-}).filter(function(s){return s.sc>0;}).sort(function(a,b){return b.sc-a.sc;});
+var srcSpPct=spandexPct(srcParsed);
 
-/* Only use Group A relaxed fallback when subtype was NOT locked. */
-if(!subtypeLocked&&results.length<5&&srcParsed.length>0&&srcParsed[0]&&isGroupA(srcParsed[0].fiber)){
-var relaxed=pool.map(function(f){var sc=0;if(cr.sub){var cs=normSubText(cr.sub),fs=normSubText(f.sub);if(fs===cs)sc+=80;else if(fs.includes(cs)||cs.includes(fs))sc+=65;}if(cr.wt>0&&f.wt>0){var dd=Math.abs(f.wt-cr.wt)/cr.wt;if(dd<=0.15)sc+=30*(1-dd/0.15);}var candP=parseComp(f.comp);var cs2=compScore(srcParsed,candP,cr.hasSp===true);if(cs2.grpA)sc+=cs2.sc;return Object.assign({},f,{sc:Math.round(sc),grpA:true});}).filter(function(s){return s.sc>0&&s.grpA;}).sort(function(a,b){return b.sc-a.sc;});
-var existRDs=results.map(function(r){return r.rd;});relaxed.forEach(function(r){if(!existRDs.includes(r.rd))results.push(r);});results.sort(function(a,b){return b.sc-a.sc;});
+/* Material Subtype: same subtype is preferred, but non-matching subtype stays behind. */
+var hasSubtypeMatch=false;
+if(cr.sub){hasSubtypeMatch=pool.some(function(f){return isSubMatch(f,cr.sub);});}
+
+var results=pool.map(function(f){
+  var sc=0;
+  var subExact=false, subRelated=false;
+  if(cr.sub){
+    var cs=normSubText(cr.sub),fs=normSubText(f.sub),fn=normSubText(f.name),fd=normSubText(f.desc);
+    subExact=(fs===cs||fn===cs||fd===cs);
+    subRelated=(subExact||fs.includes(cs)||cs.includes(fs)||fn.includes(cs)||fd.includes(cs));
+    if(subExact)sc+=40;
+    else if(subRelated)sc+=30;
+  }
+
+  var weightBucket=3;
+  if(cr.wt>0&&f.wt>0){
+    var d=Math.abs(f.wt-cr.wt)/cr.wt;
+    if(d<=0.15){sc+=30*(1-d/0.15);weightBucket=0;}
+    else if(d<=0.30){sc+=5*(1-(d-0.15)/0.15);weightBucket=1;}
+    else{sc-=20;weightBucket=2;}
+  }else if(cr.wt===0){sc+=2;weightBucket=0;}
+
+  if(srcParsed.length>0){
+    var candParsed=parseComp(f.comp);
+    sc+=compScoreSOP(srcParsed,candParsed);
+    var candSpPct=spandexPct(candParsed);
+    if(srcSpPct>0&&candSpPct>0)sc+=Math.max(0,10*(1-Math.min(Math.abs(srcSpPct-candSpPct),50)/50));
+  }
+
+  /* Sort keys enforce SOP priority order even when scores are close. */
+  var subRank=cr.sub?(subExact?0:(subRelated?1:2)):0;
+  var spRank=(cr.hasSp===undefined)?0:(f.hasSp===cr.hasSp?0:1);
+  return Object.assign({},f,{sc:Math.round(sc),_subRank:subRank,_weightBucket:weightBucket,_spRank:spRank});
+}).filter(function(s){return s.sc>0;});
+
+results.sort(function(a,b){
+  if(a._spRank!==b._spRank)return a._spRank-b._spRank;
+  if(a._subRank!==b._subRank)return a._subRank-b._subRank;
+  if(a._weightBucket!==b._weightBucket)return a._weightBucket-b._weightBucket;
+  return b.sc-a.sc;
+});
+
+/* Group A fallback only when fewer than 5 usable results, and only after normal SOP ranking. */
+if(results.length<5&&srcParsed.length>0&&srcParsed[0]&&isGroupA(srcParsed[0].fiber)){
+  var existRDs=results.map(function(r){return r.rd;});
+  var relaxed=pool.map(function(f){
+    var candP=parseComp(f.comp);var cs2=compScore(srcParsed,candP,cr.hasSp===true);
+    if(!cs2.grpA)return null;
+    var sc=cs2.sc;
+    if(cr.sub&&isSubMatch(f,cr.sub))sc+=20;
+    if(cr.wt>0&&f.wt>0){var dd=Math.abs(f.wt-cr.wt)/cr.wt;if(dd<=0.15)sc+=15*(1-dd/0.15);else sc-=20;}
+    return Object.assign({},f,{sc:Math.round(sc),_subRank:cr.sub?(isSubMatch(f,cr.sub)?1:3):1,_weightBucket:2,grpA:true});
+  }).filter(function(s){return s&&s.sc>0&&!existRDs.includes(s.rd);});
+  results=results.concat(relaxed);
+  results.sort(function(a,b){
+    if(a._subRank!==b._subRank)return a._subRank-b._subRank;
+    if(a._weightBucket!==b._weightBucket)return a._weightBucket-b._weightBucket;
+    return b.sc-a.sc;
+  });
 }
 return results;
 }
-
 /* ═══ parseFT — with oz conversion ═══ */
 function parseFT(ft){
 var ty='';
@@ -570,6 +638,8 @@ else{var ozm=ft.match(/(\d+(?:\.\d+)?)\s*(oz\/?s?q?\s*y(?:d|ard)|oz\/yd2|osy)/i)
 var comp='';
 ['Cotton','Polyester','Nylon','Viscose','Modal','Lyocell','Wool','Linen','Rayon','Tencel','Spandex','Elastane','Lycra','Acrylic'].forEach(function(w){if(ft.toLowerCase().includes(w.toLowerCase()))comp+=(comp?', ':'')+w;});
 var _parsed=parseComp(ft);
+/* If input says Lace + stretch yarn/denier but no explicit type, treat as Knit for SOP hard filter. */
+if(!ty&&sub==='Lace'&&/spandex|elastane|lycra|denier/i.test(ft))ty='Knit';
 return{ty:ty,hasSp:sp,sub:sub,wt:wt,comp:comp,_parsed:_parsed};
 }
 
