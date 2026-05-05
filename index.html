@@ -646,7 +646,12 @@ function saveFI(){save();upSt();showFI(curFI);toast('FI saved!');}
              2) If not, check shared/local History
              3) If not, parse fabric text and recommend substitute fabric
 */
-function normRD(v){return sv(v).replace(/^RD#?/i,'').replace(/^0+/,'').trim();}
+function normRD(v){
+  var s=sv(v).trim();
+  var m=s.match(/(?:RD#?\s*)?(\d{5,7})(?:\.0+)?/i);
+  if(m)return m[1].replace(/^0+/,'');
+  return s.replace(/^RD#?\s*/i,'').replace(/\.0+$/,'').replace(/^0+/,'').trim();
+}
 function allFI(){return [].concat(FI.knit||[],FI.woven||[],FI.denim||[]);}
 function extractRDsFromText(q){
   var text=sv(q);
@@ -667,15 +672,33 @@ function findActualByRDs(rdNums){
 }
 function findHistoryByQuery(q,rdNums){
   hist=(hist||[]).map(normHistRow);
-  var ql=sv(q).toLowerCase();
+  var qText=sv(q).toLowerCase().trim();
   var rdSet=(rdNums||[]).map(normRD).filter(Boolean);
-  return hist.filter(function(h){
-    var orRD=normRD(h.or), srRD=normRD(h.sr), s2RD=normRD(h.s2);
-    if(rdSet.length){
-      return rdSet.some(function(r){return orRD===r||srRD===r||s2RD===r;});
-    }
-    return sv(h.st).toLowerCase().includes(ql)||sv(h.or).toLowerCase().includes(ql)||sv(h.sr).toLowerCase().includes(ql)||sv(h.sd).toLowerCase().includes(ql);
-  });
+
+  function rowText(h){
+    return [h.id,h.st,h.ca,h.se,h.or,h.od,h.sr,h.s2,h.sd,h.no,h.dt,h.user]
+      .map(function(v){return sv(v).toLowerCase();}).join(' ');
+  }
+
+  /* 1) If query has RD, match Orig RD / Sub RD / Sub RD2 exactly first */
+  if(rdSet.length){
+    var exact=hist.filter(function(h){
+      var candidates=[h.or,h.sr,h.s2,h.od,h.sd,h.no].map(normRD).filter(Boolean);
+      return rdSet.some(function(r){return candidates.indexOf(r)>=0;});
+    });
+    if(exact.length)return exact;
+
+    /* 2) Fallback: some old/shared sheet rows may store RD inside text columns instead of RD columns */
+    var loose=hist.filter(function(h){
+      var txt=rowText(h);
+      return rdSet.some(function(r){return txt.indexOf(r)>=0;});
+    });
+    if(loose.length)return loose;
+  }
+
+  /* 3) No RD or no exact RD match: search all normalized History fields */
+  if(!qText)return[];
+  return hist.filter(function(h){return rowText(h).indexOf(qText)>=0;});
 }
 function parsedFromQuery(q){
   var cleaned=cleanFabricForParse(q);
