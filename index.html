@@ -99,7 +99,7 @@ focus{background:rgba(61,140,94,.1);box-shadow:0 0 0 2px var(--ac)}
 <body>
 
 <div class="hdr">
-<h1>GIS FDT <em>v4.0</em></h1>
+<h1>GIS FDT <em>v4.26</em></h1>
 <div class="sts">
 <span>Knit:<b id="sK">0</b></span><span>Woven:<b id="sW">0</b></span><span>Denim:<b id="sD">0</b></span><span>History:<b id="sH">0</b></span>
 </div></div>
@@ -600,6 +600,14 @@ if(s==='lace'&&/spandex|elastane|lycra|denier/i.test(ft))return 'Knit';
 return '';
 }
 
+function extractWeight(ft){
+  ft=sv(ft);
+  var wm=ft.match(/(\d+(?:\.\d+)?)\s*(g\s*\/\s*m2|g\/m2|gsm|gm|g\s*m2)/i);
+  if(wm)return parseFloat(wm[1]);
+  var ozm=ft.match(/(\d+(?:\.\d+)?)\s*(oz\/?s?q?\s*y(?:d|ard)|oz\/yd2|osy)/i);
+  if(ozm)return Math.round(parseFloat(ozm[1])*33.906);
+  return 0;
+}
 function parseFT(ft){
 ft=sv(ft);
 var ty='';
@@ -656,10 +664,7 @@ if(!ty){
   else if(/\(Woven\)|,\s*woven\b|\bwoven\b|plain[\s\-]weave|\bplain\b(?!\s*jersey)|twill\b|poplin\b|seersucker\b|oxford\s*cloth|broadcloth|\bcanvas\b|\bchiffon\b|\bvoile\b|\bdobby\b|\bjacquard\b(?!\s*knit)|\bcrepe\b|\bgauze\b|\blawn\b|\bsateen\b|\bvelvet\b|\bcorduroy\b|\bflannel\b|\bchambray\b|\bsatin\b|\btaffeta\b|\bgeorgette\b|\borganza\b|\bripstop\b|\bherringbone\b|\bmuslin\b|\bcharmeuse\b|\bhabutai\b/i.test(ft))ty='Woven';
   else if(/denim/i.test(ft))ty='Denim';
 }
-var wt=0;
-var wm=ft.match(/(\d+(?:\.\d+)?)\s*(g\/m2|gsm|gm)/i);
-if(wm){wt=parseFloat(wm[1]);}
-else{var ozm=ft.match(/(\d+(?:\.\d+)?)\s*(oz\/?s?q?\s*y(?:d|ard)|oz\/yd2|osy)/i);if(ozm)wt=Math.round(parseFloat(ozm[1])*33.906);}
+var wt=extractWeight(ft);
 var comp='';
 ['Cotton','Polyester','Nylon','Viscose','Modal','Lyocell','Wool','Linen','Rayon','Tencel','Spandex','Elastane','Lycra','Acrylic'].forEach(function(w){if(ft.toLowerCase().includes(w.toLowerCase()))comp+=(comp?', ':'')+w;});
 var _parsed=parseComp(ft);
@@ -815,17 +820,23 @@ function findHistoryByQuery(q,rdNums){
 function parseSlashQuery(q){
   var raw=sv(q).trim();
   if(raw.indexOf('/')<0)return null;
-  var parts=raw.split('/').map(function(x){return x.trim();}).filter(function(x){return x!=='';});
-  /* Expected paste format: RD / Material Subtype / composition text */
-  if(parts.length<3)return null;
-  var rdPart=parts[0];
-  var subtype=parts[1];
-  var compText=parts.slice(2).join(' ');
+
+  /* Expected paste format: RD / Material Subtype / composition text
+     Important: composition text can contain units like g/m2 or 50 / 48 inch.
+     Do NOT split every slash, otherwise 205.0 g/m2 becomes 205.0 g m2 and weight becomes 0. */
+  var m=raw.match(/^\s*([^/]+?)\s*\/\s*([^/]+?)\s*\/\s*([\s\S]+)$/);
+  if(!m)return null;
+
+  var rdPart=m[1].trim();
+  var subtype=m[2].trim();
+  var compText=m[3].trim();
   var parseText=subtype+' '+compText;
   var parsed=parseFT(parseText);
+
   parsed.sub=subtype;
   parsed.ty=typeFromSubtype(subtype,parseText)||parsed.ty;
   parsed.hasSp=/spandex|elastane|lycra/i.test(parseText);
+  parsed.wt=parsed.wt||extractWeight(compText)||extractWeight(parseText);
   parsed._parsed=parseComp(compText);
   if(!parsed._parsed.length)parsed._parsed=parseComp(parseText);
   parsed.comp=compText;
