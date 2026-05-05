@@ -194,7 +194,13 @@ focus{background:rgba(61,140,94,.1);box-shadow:0 0 0 2px var(--ac)}
 <div class="stbl" id="fit" style="max-height:400px"></div>
 </div>
 <div class="cd"><h3>共用 History</h3>
-<p style="font-size:.85em;color:var(--t2)">✓ 已連接共用 History，全組資料自動同步</p>
+<p style="font-size:.85em;color:var(--t2);margin-bottom:10px">✓ 已連接共用 History。按 + 後會先開啟視窗，按 Save 才會同步到 Google Sheet。</p>
+<div class="fr">
+<div class="fg"><label>Apps Script Web App URL (/exec)</label><input id="gasUrl" placeholder="https://script.google.com/macros/s/.../exec"></div>
+<div class="fg" style="max-width:240px"><label>&nbsp;</label><button class="btn bp" onclick="svGasUrl()">Save Sync URL</button></div>
+<div class="fg" style="max-width:180px"><label>&nbsp;</label><button class="btn bs" onclick="loadHist()">Test / Sync</button></div>
+</div>
+<p style="font-size:.78em;color:var(--t2)">注意：Google Sheets 分享連結不能直接貼在這裡，必須使用 Apps Script 部署後產生的 Web App /exec URL。</p>
 </div>
 <div class="cd"><h3>Comment Templates</h3>
 <div class="fg" style="margin-bottom:12px"><label>Actual</label>
@@ -247,38 +253,70 @@ RD{actual_rd} {actual_name}, {actual_comp}, {actual_weight}
 var FI={knit:[],woven:[],denim:[]},hist=[],BD={mapped:[],res:[],wb:null,sn:[],_rows:null},eIdx=-1;
 
 /* ── Shared History: load from Google Sheets ── */
+function normHistRow(row){
+  row=row||{};
+  return{
+    id:row.id||row.ID||row.Id||row.ts||row.Timestamp||'',
+    st:row.st||row.style||row.Style||row['Style#']||row['style#']||'',
+    ca:row.ca||row.category||row.Category||'',
+    se:row.se||row.season||row.Season||'',
+    or:row.or||row.origRD||row.OrigRD||row['Orig RD']||row.original_rd||'',
+    od:row.od||row.origDesc||row.OrigDesc||row['Orig Desc']||'',
+    sr:row.sr||row.subRD||row.SubRD||row['Sub RD']||'',
+    s2:row.s2||row.subRD2||row.SubRD2||row['Sub RD2']||'',
+    sd:row.sd||row.subDesc||row.SubDesc||row['Sub Desc']||'',
+    no:row.no||row.notes||row.Notes||'',
+    dt:(row.dt||row.date||row.Date||row.ts||row.Timestamp||new Date().toISOString()).toString().split('T')[0],
+    user:row.user||row.User||''
+  };
+}
 function loadHist(){
-  if(!GAS_URL){return;}
+  if(!GAS_URL){toast('請先設定 Apps Script Web App URL','var(--or)');return;}
   if(HIST_LOADING)return;
   HIST_LOADING=true;
-  fetch(GAS_URL+'?action=getAll')
+  fetch(GAS_URL+'?action=getAll&v='+Date.now(),{cache:'no-store'})
     .then(function(r){return r.json();})
     .then(function(d){
-      if(d.ok&&d.data){
-        hist=d.data.map(function(row){
-          return{id:row.id,st:row.st,ca:row.ca,se:row.se,or:row.or,od:row.od,
-                 sr:row.sr,s2:row.s2,sd:row.sd,no:row.no,dt:(row.ts||'').split('T')[0],
-                 user:row.user||''};
-        });
-        save();renH();
+      var rows=[];
+      if(Array.isArray(d))rows=d;
+      else if(d&&Array.isArray(d.data))rows=d.data;
+      else if(d&&Array.isArray(d.rows))rows=d.rows;
+      if(rows.length){
+        hist=rows.map(normHistRow);
+        save();upSt();renH();
         toast('History 已同步 ('+hist.length+' 筆)','var(--bl)');
+      }else if(d&&d.ok===false){
+        toast('History 同步失敗: '+(d.error||'unknown'),'var(--rd)');
+      }else{
+        toast('History 目前沒有資料','var(--or)');
       }
     })
-    .catch(function(){})
+    .catch(function(e){toast('History 同步失敗，請確認 /exec URL 與 Apps Script 權限','var(--rd)');console.error(e);})
     .finally(function(){HIST_LOADING=false;});
 }
+function postHist(action,r,id){
+  var body=Object.assign({},r,{action:action,id:id||r.id||'',data:Object.assign({},r,{id:id||r.id||''})});
+  return fetch(GAS_URL,{method:'POST',body:JSON.stringify(body)}).then(function(res){return res.json();});
+}
 function delHistEntry(id,localIdx){
-  if(!GAS_URL){
-    hist.splice(localIdx,1);save();renH();toast('已刪除');return;
-  }
+  if(!id){hist.splice(localIdx,1);save();upSt();renH();toast('已刪除本機資料');return;}
+  if(!GAS_URL){hist.splice(localIdx,1);save();upSt();renH();toast('已刪除本機資料');return;}
   if(!confirm('確定刪除這筆 History？'))return;
   fetch(GAS_URL+'?action=del&id='+encodeURIComponent(id))
     .then(function(r){return r.json();})
     .then(function(d){
-      if(d.ok){hist.splice(localIdx,1);save();renH();toast('已刪除');}
-      else toast('刪除失敗','var(--rd)');
+      if(d.ok!==false){hist.splice(localIdx,1);save();upSt();renH();toast('已同步刪除');}
+      else toast('刪除失敗: '+(d.error||'unknown'),'var(--rd)');
     })
-    .catch(function(){hist.splice(localIdx,1);save();renH();toast('已刪除 (離線)');});
+    .catch(function(){toast('刪除失敗，請確認 Apps Script 權限','var(--rd)');});
+}
+function svGasUrl(){
+  var el=document.getElementById('gasUrl');
+  GAS_URL=(el&&el.value?el.value.trim():GAS_URL);
+  if(!/\/exec(?:\?|$)/.test(GAS_URL)){toast('請貼 Apps Script 部署後的 /exec URL，不是 Google Sheet 或 Apps Script 編輯頁','var(--or)');return;}
+  localStorage.setItem('gasUrl',GAS_URL);
+  toast('Sync URL 已儲存');
+  loadHist();
 }
 
 /* ── Google Sheets API endpoint (貼上你的 Apps Script URL) ── */
@@ -407,7 +445,7 @@ var FIBER_NORM={
 'acrylic':'Acrylic','hemp':'Hemp','ramie':'Ramie','cashmere':'Cashmere'
 };
 function parseComp(str){
-if(!str)return[];var parts=str.split(/,\s*/);var res=[];
+if(!str)return[];str=String(str).replace(/Iron\s*Shrinkage[^,]*/ig,'').replace(/Shrinkage[^,]*/ig,'');var parts=str.split(/,\s*/);var res=[];
 parts.forEach(function(p){var m=p.match(/(\d+(?:\.\d+)?)\s*%\s*(.*)/);if(m){var pct=parseFloat(m[1]);var raw=m[2].toLowerCase().replace(/\(.*?\)/g,'').trim();var fiber='Other';for(var k in FIBER_NORM){if(raw.includes(k)){fiber=FIBER_NORM[k];break;}}var ex=res.find(function(r){return r.fiber===fiber;});if(ex)ex.pct+=pct;else res.push({fiber:fiber,pct:pct});}});
 res.sort(function(a,b){return b.pct-a.pct;});return res;
 }
@@ -570,9 +608,10 @@ fetch('fabric-data.json')
 /* Load history & templates (no need to wait for fabric) */
 try{
   var h=localStorage.getItem('ghi');if(h)hist=JSON.parse(h);
-  loadHist();
   var g=localStorage.getItem('gasUrl');if(g)GAS_URL=g;
-var t=localStorage.getItem('gtl');if(t){var o=JSON.parse(t);document.getElementById('tA').value=o.a||document.getElementById('tA').value;document.getElementById('tS').value=o.s||document.getElementById('tS').value;}
+  var gEl2=document.getElementById('gasUrl');if(gEl2&&GAS_URL)gEl2.value=GAS_URL;
+  var t=localStorage.getItem('gtl');if(t){var o=JSON.parse(t);document.getElementById('tA').value=o.a||document.getElementById('tA').value;document.getElementById('tS').value=o.s||document.getElementById('tS').value;}
+  if(GAS_URL)loadHist();
 }catch(e){}
 renH();
 }
@@ -600,7 +639,7 @@ var o=document.getElementById('sr');_cmts=[];
 var _rdPre=(q.match(/RD#?[0-9]{5,7}/gi)||[]);var rdM=_rdPre.map(function(m){return m.replace(/^RD#?/i,'');});if(rdM.length===0){var rdPlain=(q.match(/(?<![A-Za-z0-9])([0-9]{5,7})(?![0-9])/g)||[]);rdPlain.forEach(function(v){if(!rdM.includes(v))rdM.push(v);});}var rdNums=rdM.filter(function(v,i,a){return a.indexOf(v)===i;});
 var act=[];if(rdNums.length>0){var all=[].concat(FI.knit,FI.woven,FI.denim);rdNums.forEach(function(n){act=act.concat(all.filter(function(f){return f.rd.replace(/^0+/,'')===n.replace(/^0+/,'');}));});}
 var ql=q.toLowerCase();var hi=hist.filter(function(h){return(h.st||'').toLowerCase().includes(ql)||(h.or||'').includes(ql.replace(/rd#?/i,''))||(h.sr||'').includes(ql.replace(/rd#?/i,''));});
-var parsed=parseFT(q);var rec=[];
+var parsed=parseFT(cleanFabricForParse(q));var rec=[];
 var rec=[];
 if(act.length===0&&hi.length===0&&(parsed.wt>0||parsed.comp||parsed.sub))rec=getRec(parsed).slice(0,30);
 var h='';
@@ -646,15 +685,14 @@ if(!GAS_URL){
 }
 var btn=document.querySelector('#mo .bp');if(btn){btn.disabled=true;btn.textContent='儲存中...';}
 var method=eIdx>=0?'edit':'add';
-var body=Object.assign({action:method},r);
-if(eIdx>=0&&hist[eIdx]&&hist[eIdx].id)body.id=hist[eIdx].id;
-fetch(GAS_URL,{method:'POST',body:JSON.stringify(body)})
+var saveId=(eIdx>=0&&hist[eIdx]&&hist[eIdx].id)?hist[eIdx].id:'';
+postHist(method,r,saveId)
   .then(function(res){return res.json();})
   .then(function(d){
     if(d.ok){
       if(eIdx>=0){hist[eIdx]=Object.assign({},r,{id:hist[eIdx].id||d.id});}
       else{r.id=d.id;hist.push(r);}
-      save();renH();hiMo();
+      save();upSt();renH();hiMo();
       toast('✓ 已同步到共用 History','var(--gn)');
     } else {
       toast('儲存失敗: '+(d.error||'unknown'),'var(--rd)');
@@ -670,7 +708,7 @@ fetch(GAS_URL,{method:'POST',body:JSON.stringify(body)})
     if(btn){btn.disabled=false;btn.textContent='Save';}
   });
 }
-function delH(i){if(!confirm('Delete?'))return;hist.splice(i,1);save();upSt();renH();toast('Deleted','var(--or)');}
+function delH(i){if(!hist[i])return;delHistEntry(hist[i].id,i);}
 function renH(){var q=(document.getElementById('hq')||{}).value||'';var ql=q.toLowerCase();var fl=hist;if(q)fl=hist.filter(function(h){return(h.st||'').toLowerCase().includes(ql)||(h.or||'').includes(ql)||(h.sr||'').includes(ql);});var el=document.getElementById('ht');if(!fl.length){el.innerHTML='<div class="emp">No records</div>';return;}var h='<table class="dt"><thead><tr><th>Date</th><th>Season</th><th>Cat</th><th>Style</th><th>Orig RD</th><th>Sub RD</th><th>Desc</th><th></th></tr></thead><tbody>';fl.forEach(function(r){var ri=hist.indexOf(r);h+='<tr><td>'+r.dt+'</td><td>'+r.se+'</td><td>'+r.ca+'</td><td>'+r.st+'</td><td>'+r.or+'</td><td><b>'+r.sr+'</b>'+(r.s2?' / '+r.s2:'')+'</td><td style="font-size:.82em">'+r.sd+'</td><td><button class="btn bsm bs" onclick="shMo('+ri+')">Edit</button> <button class="btn bsm br" onclick="delH('+ri+')">Del</button></td></tr>';});h+='</tbody></table>';el.innerHTML=h;}
 function exH(){var hdr='style,category,season,origRD,origDesc,subRD,subRD2,subDesc,notes,date';var rows=hist.map(function(h){return[h.st,h.ca,h.se,h.or,h.od,h.sr,h.s2,h.sd,h.no,h.dt].map(function(v){return'"'+(v||'').replace(/"/g,'""')+'"';}).join(',');});var csv=hdr+'\n'+rows.join('\n');var b=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});var a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='history_'+new Date().toISOString().split('T')[0]+'.csv';a.click();}
 function imH(e){var f=e.target.files[0];if(!f)return;var r=new FileReader();r.onload=function(ev){try{var lines=ev.target.result.split('\n').filter(function(l){return l.trim();});if(lines.length<2){toast('Empty CSV','var(--or)');return;}var imported=[];for(var i=1;i<lines.length;i++){var vals=[],cur='',inQ=false;for(var c=0;c<lines[i].length;c++){var ch=lines[i][c];if(ch==='"')inQ=!inQ;else if(ch===','&&!inQ){vals.push(cur);cur='';}else cur+=ch;}vals.push(cur);vals=vals.map(function(v){return v.replace(/""/g,'"').trim();});imported.push({st:vals[0]||'',ca:vals[1]||'',se:vals[2]||'',or:vals[3]||'',od:vals[4]||'',sr:vals[5]||'',s2:vals[6]||'',sd:vals[7]||'',no:vals[8]||'',dt:vals[9]||''});}hist=hist.concat(imported);save();upSt();renH();toast('Imported '+imported.length);}catch(er){toast('CSV failed','var(--rd)');}};r.readAsText(f);e.target.value='';}
@@ -712,6 +750,22 @@ BD._rows=rows;gStp(1);toast('Loaded: '+rows.length+' rows (header row '+(hdrRow+
 };r.readAsArrayBuffer(f);
 }
 
+function cleanFabricForParse(ft){
+  if(!ft)return'';
+  var s=String(ft).replace(/\r/g,'\n').replace(/，/g,',').replace(/：/g,':').trim();
+  s=s.replace(/^\s*(?:\d+\.)\s*/,'');
+  s=s.replace(/^[-–—•*\s]+/,'');
+  /* Remove shell/lining label and codes before it, e.g. ZT-SZ0040(表布), ... */
+  s=s.replace(/^.*?\((表布|面布|裡布|里布|裏布|lining|shell)\)\s*[,;:、]?\s*/i,'');
+  s=s.replace(/Iron\s*Shrinkage[^,]*/ig,'').replace(/Shrinkage[^,]*/ig,'');
+  s=s.replace(/^\s*[,;:、]\s*/,'');
+  return s.trim();
+}
+function splitByFabricLines(ft){
+  if(!ft)return[];
+  return String(ft).replace(/\r/g,'\n').split(/\n+/).map(function(s){return s.trim();}).filter(function(s){return s&&/(?:RD#?\s*\d{5,7}|\d{5,7}|%|polyester|cotton|nylon|rayon|viscose|linen|wool|spandex|woven|knit|denim|weave|jersey|twill|embroidery)/i.test(s);});
+}
+
 function doMap(){
 var rows=BD._rows;if(!rows||!rows.length){toast('No data','var(--or)');return;}
 var ms=document.getElementById('mS').value,mr=document.getElementById('mR').value,mf=document.getElementById('mF').value;
@@ -743,18 +797,15 @@ BD.mapped=rows.map(function(r){
   return{st:cleanStyle,ds:'',ca:'',ft:ft,rd:rd,su:'',se:''};
 }).filter(function(r){return !r.skip&&(r.st||r.rd||r.ft);});
 
-/* Expand multi-fabric rows - split on newline */
+/* Expand multi-fabric rows - split on newline; each line may be 表布 / 裡布 / comma based material */
 var expanded=[];
 BD.mapped.forEach(function(row){
   var ft=row.ft||'';
-  if(!ft||ft.indexOf('\n')===-1){expanded.push(row);return;}
-  var segs=ft.split('\n').map(function(s){return s.replace(/^\d+\.\s*/,'').trim();})
-    .filter(function(s){
-      return s&&/(?:RD#?|\d{5,7})|%|polyester|cotton|nylon|rayon|viscose|linen|wool|spandex/i.test(s);
-    });
+  var segs=splitByFabricLines(ft);
   if(segs.length<=1){expanded.push(row);return;}
   segs.forEach(function(s,i){
-    expanded.push(Object.assign({},row,{ft:s,rd:'',label:'布料'+(i+1)}));
+    var lab=/表布|面布/.test(s)?'TOP (表布)':/裡布|里布|裏布/.test(s)?'BTM (裡布)':'布料'+(i+1);
+    expanded.push(Object.assign({},row,{ft:s,rd:'',label:lab}));
   });
 });
 BD.mapped=expanded;
@@ -772,23 +823,32 @@ return m2?m2[1]:'';
 }
 function splitFabricParts(ft){
 if(!ft)return[];
+var src=String(ft).replace(/\r/g,'\n').replace(/，/g,',');
 var parts=[];
-var topM=ft.match(/\(表布\)([^(]+)/);
-var btmM=ft.match(/\(裡布\)([^(]+)/);
-if(topM||btmM){
-  if(topM)parts.push({label:'TOP (表布)',text:topM[1].trim()});
-  if(btmM)parts.push({label:'BTM (裡布)',text:btmM[1].trim()});
+/* Support: ZT-SZ0040(表布), ...   and   (裡布)Plain Weave, ... */
+var re=/((?:[A-Za-z0-9_-]+)?\s*\((?:表布|面布|裡布|里布|裏布)\)\s*[,;:、]?\s*)/ig;
+var ms=[],m;
+while((m=re.exec(src))!==null){ms.push({idx:m.index,end:re.lastIndex,raw:m[1]});}
+if(ms.length){
+  ms.forEach(function(mm,i){
+    var next=i+1<ms.length?ms[i+1].idx:src.length;
+    var label=/表布|面布/i.test(mm.raw)?'TOP (表布)':'BTM (裡布)';
+    var text=src.substring(mm.end,next).trim();
+    text=cleanFabricForParse(text);
+    if(text)parts.push({label:label,text:text});
+  });
   return parts;
 }
-var topM2=ft.match(/TOP\s*:?([^B\n]+)/i);
-var btmM2=ft.match(/BTM\s*:?(.+)/i);
-if(topM2&&btmM2){
-  parts.push({label:'TOP',text:topM2[1].trim()});
-  parts.push({label:'BTM',text:btmM2[1].trim()});
-  return parts;
+var topM=src.match(/TOP\s*[:：]\s*([\s\S]*?)(?=\n?\s*BTM\s*[:：]|$)/i);
+var btmM=src.match(/BTM\s*[:：]\s*([\s\S]*)/i);
+if(topM||btmM){
+  if(topM)parts.push({label:'TOP',text:cleanFabricForParse(topM[1])});
+  if(btmM)parts.push({label:'BTM',text:cleanFabricForParse(btmM[1])});
+  return parts.filter(function(p){return p.text;});
 }
 return[];
 }
+
 function procRowFabric(row){
 var all=[].concat(FI.knit,FI.woven,FI.denim);
 var ft=row.ft||'';
@@ -801,7 +861,8 @@ if(parts.length>0){
     var f=findRD(segRD);
     if(f){sub.status='actual';sub.match=f;return sub;}
     if(!p.text){sub.status='skip';return sub;}
-    var prs=parseFT(p.text);sub.parsedFT=prs;
+    var parseText=cleanFabricForParse(p.text);
+    var prs=parseFT(parseText);sub.parsedFT=prs;sub.ft=parseText||p.text;
     sub.recs=getRec(prs).slice(0,30);
     return sub;
   });
@@ -812,7 +873,7 @@ var f2=findRD(row.rd)||findRD(extractSegRD(ft));
 if(f2){single.status='actual';single.match=f2;return[single];}
 var hm=hist.find(function(h){return h.or===row.rd||(h.st&&row.st&&h.st===row.st);});
 if(hm){single.status='history';single.hm=hm;return[single];}
-if(ft){var prs2=parseFT(ft);single.parsedFT=prs2;single.recs=getRec(prs2).slice(0,30);}
+if(ft){var parseText2=cleanFabricForParse(ft);var prs2=parseFT(parseText2);single.parsedFT=prs2;single.ft=parseText2||ft;single.recs=getRec(prs2).slice(0,30);}
 return[single];
 }
 function procB(){
