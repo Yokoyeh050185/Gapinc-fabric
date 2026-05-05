@@ -193,12 +193,9 @@ focus{background:rgba(61,140,94,.1);box-shadow:0 0 0 2px var(--ac)}
 <input style="width:100%;padding:8px 12px;margin-bottom:8px;border-radius:6px;background:var(--bg);border:1px solid var(--bd);color:var(--tx)" id="fiq" placeholder="Filter: RD / name / subtype / composition..." oninput="showFI(curFI)">
 <div class="stbl" id="fit" style="max-height:400px"></div>
 </div>
-<div class="cd"><h3>共用 History 設定</h3>
-<div class="fg" style="margin-bottom:12px">
-  <label>Google Apps Script 網址 <span style="font-size:.75em;color:var(--t2)">(部署後貼上)</span></label>
-  <input id="gasUrl" placeholder="https://script.google.com/macros/s/..." style="width:100%" oninput="GAS_URL=this.value.trim();localStorage.setItem('gasUrl',GAS_URL);toast('URL 已儲存','var(--gn)')">
-  <span style="font-size:.75em;color:var(--t2);margin-top:4px">設定後全組都能共用 History 紀錄</span>
-</div></div>
+<div class="cd"><h3>共用 History</h3>
+<p style="font-size:.85em;color:var(--t2)">✓ 已連接共用 History，全組資料自動同步</p>
+</div>
 <div class="cd"><h3>Comment Templates</h3>
 <div class="fg" style="margin-bottom:12px"><label>Actual</label>
 <textarea id="tA" rows="4">1. 3D Fabric/s
@@ -285,7 +282,7 @@ function delHistEntry(id,localIdx){
 }
 
 /* ── Google Sheets API endpoint (貼上你的 Apps Script URL) ── */
-var GAS_URL='';  /* <-- 部署後填入 */
+var GAS_URL='https://script.google.com/macros/s/AKfycbzUsj4zeULW6mKgFDGTqQU_yIMU702VfmQIbKJW8xKVuCRbeMNhGeV71IaaVikloX-lPw/exec';
 var HIST_LOADING=false;
 var _cmts=[],curFI='knit';
 
