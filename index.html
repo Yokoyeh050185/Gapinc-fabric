@@ -643,6 +643,8 @@ var subs=[
 'Ponte de Roma','Ponte','Jacquard',
 'Others- Faux Fur','Bonded','Denim'
 ];
+/* Match the most specific subtype first. Example: Micro Fleece must be found before generic Fleece. */
+subs.sort(function(a,b){return b.length-a.length;});
 for(var i=0;i<subs.length;i++){if(ft.toLowerCase().includes(subs[i].toLowerCase())){sub=subs[i];break;}}
 
 /* First decide Type from Material Subtype. This prevents Fleece from being parsed as Woven just because text contains Piece Dye. */
@@ -810,7 +812,30 @@ function findHistoryByQuery(q,rdNums){
   if(!qText)return[];
   return hist.filter(function(h){return rowText(h).indexOf(qText)>=0;});
 }
+function parseSlashQuery(q){
+  var raw=sv(q).trim();
+  if(raw.indexOf('/')<0)return null;
+  var parts=raw.split('/').map(function(x){return x.trim();}).filter(function(x){return x!=='';});
+  /* Expected paste format: RD / Material Subtype / composition text */
+  if(parts.length<3)return null;
+  var rdPart=parts[0];
+  var subtype=parts[1];
+  var compText=parts.slice(2).join(' ');
+  var parseText=subtype+' '+compText;
+  var parsed=parseFT(parseText);
+  parsed.sub=subtype;
+  parsed.ty=typeFromSubtype(subtype,parseText)||parsed.ty;
+  parsed.hasSp=/spandex|elastane|lycra/i.test(parseText);
+  parsed._parsed=parseComp(compText);
+  if(!parsed._parsed.length)parsed._parsed=parseComp(parseText);
+  parsed.comp=compText;
+  parsed.rd=extractRDsFromText(rdPart)[0]||'';
+  return parsed;
+}
 function parsedFromQuery(q){
+  /* Slash format has the highest priority because the user is explicitly telling us: RD / Subtype / composition text. */
+  var slashParsed=parseSlashQuery(q);
+  if(slashParsed)return slashParsed;
   var cleaned=cleanFabricForParse(q);
   var parsed=parseFT(cleaned);
   if(!parsed.ty&&!parsed.wt&&!parsed.comp&&!parsed.sub){parsed=parseFT(q);}
