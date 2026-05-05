@@ -99,7 +99,7 @@ focus{background:rgba(61,140,94,.1);box-shadow:0 0 0 2px var(--ac)}
 <body>
 
 <div class="hdr">
-<h1>GIS FDT <em>v4.26</em></h1>
+<h1>GIS FDT <em>v4.27</em></h1>
 <div class="sts">
 <span>Knit:<b id="sK">0</b></span><span>Woven:<b id="sW">0</b></span><span>Denim:<b id="sD">0</b></span><span>History:<b id="sH">0</b></span>
 </div></div>
@@ -495,10 +495,28 @@ function normSubText(v){
     .replace(/[^a-z0-9]+/g,' ')
     .trim();
 }
+function subEqValue(fs,cs){
+  if(!fs||!cs)return false;
+  if(fs===cs)return true;
+  /* Treat duplicated subtype names as equivalent: Micro Fleece - Micro Fleece = Micro Fleece. */
+  var words=cs.split(' ');
+  if(words.length>0){
+    var doubled=(cs+' '+cs).trim();
+    if(fs===doubled)return true;
+  }
+  /* Treat detail forms that start with the exact subtype as the same family, but only for ranking after weight. */
+  return false;
+}
+function isSubExactValue(fs,cs){return subEqValue(fs,cs);}
+function isSubRelatedValue(fs,cs){
+  if(!fs||!cs)return false;
+  if(isSubExactValue(fs,cs))return true;
+  return fs.indexOf(cs)>=0||cs.indexOf(fs)>=0;
+}
 function isSubMatch(f,sub){
   var cs=normSubText(sub);if(!cs)return false;
   var fields=[f.sub,f.name,f.desc].map(normSubText);
-  return fields.some(function(fs){return fs===cs||fs.indexOf(cs)>=0||cs.indexOf(fs)>=0;});
+  return fields.some(function(fs){return isSubRelatedValue(fs,cs);});
 }
 function getRec(cr){
 var pool=[];
@@ -530,19 +548,19 @@ var results=pool.map(function(f){
   var subExact=false, subRelated=false;
   if(cr.sub){
     var cs=normSubText(cr.sub),fs=normSubText(f.sub),fn=normSubText(f.name),fd=normSubText(f.desc);
-    subExact=(fs===cs||fn===cs||fd===cs);
-    subRelated=(subExact||fs.includes(cs)||cs.includes(fs)||fn.includes(cs)||fd.includes(cs));
+    subExact=(isSubExactValue(fs,cs)||isSubExactValue(fn,cs)||isSubExactValue(fd,cs));
+    subRelated=(subExact||isSubRelatedValue(fs,cs)||isSubRelatedValue(fn,cs)||isSubRelatedValue(fd,cs));
     if(subExact)sc+=40;
     else if(subRelated)sc+=30;
   }
 
-  var weightBucket=3;
+  var weightBucket=3, weightDiff=999;
   if(cr.wt>0&&f.wt>0){
-    var d=Math.abs(f.wt-cr.wt)/cr.wt;
-    if(d<=0.15){sc+=30*(1-d/0.15);weightBucket=0;}
-    else if(d<=0.30){sc+=5*(1-(d-0.15)/0.15);weightBucket=1;}
-    else{sc-=20;weightBucket=2;}
-  }else if(cr.wt===0){sc+=2;weightBucket=0;}
+    weightDiff=Math.abs(f.wt-cr.wt)/cr.wt;
+    if(weightDiff<=0.15){sc+=30*(1-weightDiff/0.15);weightBucket=0;}
+    else if(weightDiff<=0.30){sc-=30;weightBucket=1;}
+    else{sc-=80;weightBucket=2;}
+  }else if(cr.wt===0){sc+=2;weightBucket=0;weightDiff=0;}
 
   if(srcParsed.length>0){
     var candParsed=parseComp(f.comp);
@@ -554,13 +572,16 @@ var results=pool.map(function(f){
   /* Sort keys enforce SOP priority order even when scores are close. */
   var subRank=cr.sub?(subExact?0:(subRelated?1:2)):0;
   var spRank=(cr.hasSp===undefined)?0:(f.hasSp===cr.hasSp?0:1);
-  return Object.assign({},f,{sc:Math.round(sc),_subRank:subRank,_weightBucket:weightBucket,_spRank:spRank});
+  return Object.assign({},f,{sc:Math.round(sc),_subRank:subRank,_weightBucket:weightBucket,_weightDiff:weightDiff,_spRank:spRank});
 }).filter(function(s){return s.sc>0;});
 
 results.sort(function(a,b){
   if(a._spRank!==b._spRank)return a._spRank-b._spRank;
+  /* Weight outside ±15% must never outrank an acceptable-weight candidate in the same subtype family. */
+  if(a._subRank===b._subRank&&a._weightBucket!==b._weightBucket)return a._weightBucket-b._weightBucket;
   if(a._subRank!==b._subRank)return a._subRank-b._subRank;
   if(a._weightBucket!==b._weightBucket)return a._weightBucket-b._weightBucket;
+  if(a._weightBucket===0&&a._weightDiff!==b._weightDiff)return a._weightDiff-b._weightDiff;
   return b.sc-a.sc;
 });
 
