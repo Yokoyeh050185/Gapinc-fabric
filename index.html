@@ -296,7 +296,7 @@ renderFT(ctx);
 }
 function renderFT(ctx){
 var T=_tbl[ctx];if(!T)return;
-var d=applyTF(ctx);T.filtered=d;_cmts=[];
+var d=applyTF(ctx);T.filtered=d;if(ctx!=='srRec')_cmts=[];
 var cols=T.cols;
 var h='<table class="dt"><thead><tr>';
 cols.forEach(function(c){
@@ -716,6 +716,15 @@ BD._rows=rows;gStp(1);toast('Loaded: '+rows.length+' rows (header row '+(hdrRow+
 function doMap(){
 var rows=BD._rows;if(!rows||!rows.length){toast('No data','var(--or)');return;}
 var ms=document.getElementById('mS').value,mr=document.getElementById('mR').value,mf=document.getElementById('mF').value;
+/* Helper: split "1.RD#xxx...
+2.RD#yyy..." into multiple rows */
+function splitMultiFabric(style, ft, ca){
+  var segs=ft.split(/\n\s*\d+\.\s*/);
+  segs=segs.map(function(s){return s.replace(/^\d+\.\s*/,'').trim();})
+           .filter(function(s){return s&&/\d{5,}|%|[a-zA-Z]{3,}/.test(s);});
+  if(segs.length<=1)return null; // single fabric, handle normally
+  return segs.map(function(s){return {_style:style,_ft:s,_ca:ca};});
+}
 BD.mapped=rows.map(function(r){
   var style=String(r[ms]||'').trim();
   var ft=String(r[mf]||'').trim();
@@ -734,6 +743,22 @@ BD.mapped=rows.map(function(r){
   if(rd&&rd.length>7)rd='';
   return{st:cleanStyle,ds:'',ca:'',ft:ft,rd:rd,su:'',se:''};
 }).filter(function(r){return !r.skip&&(r.st||r.rd||r.ft);});
+
+/* Expand multi-fabric rows - split on newline */
+var expanded=[];
+BD.mapped.forEach(function(row){
+  var ft=row.ft||'';
+  if(!ft||ft.indexOf('\n')===-1){expanded.push(row);return;}
+  var segs=ft.split('\n').map(function(s){return s.replace(/^\d+\.\s*/,'').trim();})
+    .filter(function(s){
+      return s&&/(?:RD#?|\d{5,7})|%|polyester|cotton|nylon|rayon|viscose|linen|wool|spandex/i.test(s);
+    });
+  if(segs.length<=1){expanded.push(row);return;}
+  segs.forEach(function(s,i){
+    expanded.push(Object.assign({},row,{ft:s,rd:'',label:'布料'+(i+1)}));
+  });
+});
+BD.mapped=expanded;
 procB();gStp(2);
 }
 
@@ -741,7 +766,7 @@ function extractSegRD(text){
 if(!text)return'';
 var m=text.match(/(?:RD#?)([0-9]{5,7})/i);
 if(m)return m[1];
-var m3=text.match(/[A-Za-z]+:([0-9]{5,7})/);
+var m3=text.match(/[A-Za-z]+[-:]([0-9]{5,7})/);
 if(m3)return m3[1];
 var m2=text.match(/(?:^|[\s,])([0-9]{5,7})(?:[\s,\-]|$)/);
 return m2?m2[1]:'';
