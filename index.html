@@ -285,11 +285,10 @@ function delHistEntry(id,localIdx){
 var GAS_URL='https://script.google.com/macros/s/AKfycbzUsj4zeULW6mKgFDGTqQU_yIMU702VfmQIbKJW8xKVuCRbeMNhGeV71IaaVikloX-lPw/exec';
 var HIST_LOADING=false;
 var _cmts=[],curFI='knit';
-/* Keeps the source/original fabric info for recommendation sub-tables.
-   Without this, Search Recommend and Excel Confirm can stop with '_actMap is not defined'. */
 var _actMap={};
 
 /* ═══ Filter/Sort Table System ═══ */
+window.onerror=function(msg,src,line,col,err){try{toast('JS Error: '+msg,'var(--rd)');console.error(err||msg);}catch(e){};};
 var _tbl={};
 var _fpCtx=null,_fpCol=null;
 
@@ -517,7 +516,7 @@ function cpC(i){var t=_cmts[i];if(!t)return;navigator.clipboard.writeText(t).the
 function addHist(ci,ctx,idx){
 var T=_tbl[ctx];if(!T)return;var f=T.filtered[idx];if(!f)return;
 /* Get actual info from _actMap if available (Batch sub-table) */
-var act=_actMap[ctx]||null;
+var act=(typeof _actMap!=='undefined'&&_actMap[ctx])?_actMap[ctx]:null;
 var origRD='',origDesc='',styleSt='',styleCa='';
 if(act){
   styleSt=act.st||'';
@@ -609,10 +608,7 @@ if(act.length>0){h+='<div class="cd"><h3><span class="bdg ba">Actual</span> '+ac
 if(hi.length>0){h+='<div class="cd"><h3><span class="bdg bh">History</span> '+hi.length+'</h3><table class="dt"><thead><tr><th>Style</th><th>Season</th><th>Orig RD</th><th>Sub RD</th><th>Desc</th><th></th></tr></thead><tbody>';hi.forEach(function(r){var ci=_cmts.length;_cmts.push(genC('s',{rd:r.sr,name:r.sd,comp:r.sd,wt:'',sub:''}));h+='<tr><td>'+r.st+'</td><td>'+r.se+'</td><td>'+r.or+'</td><td><b>'+r.sr+'</b></td><td style="font-size:.85em">'+r.sd+'</td><td><button class="btn bsm bp" onclick="cpC('+ci+')">Copy</button></td></tr>';});h+='</tbody></table></div>';}
 if(rec.length>0){h+='<div class="cd"><h3><span class="bdg bo">Recommend</span> '+rec.length+'</h3><div style="font-size:.82em;color:var(--t2);margin-bottom:8px"><b>Parsed:</b> Type=<span class="tg">'+(parsed.ty||'?')+'</span> Spandex='+(parsed.hasSp?'Yes':'No')+' Subtype=<span class="tg">'+(parsed.sub||'?')+'</span> Weight='+parsed.wt+'g/m2</div><div id="srRec"></div></div>';}
 if(!h)h='<div class="emp">No results.</div>';o.innerHTML=h;
-if(rec.length>0){
-  _actMap['srRec']={st:q,ca:'',rd:rdNums[0]||'',ft:q,label:'',actualInfo:act.length>0?act[0]:null};
-  regTbl('srRec',rec,REC_COLS,'srRec',true);
-}
+if(rec.length>0)regTbl('srRec',rec,REC_COLS,'srRec',true);
 }
 function clrS(){document.getElementById('qi').value='';document.getElementById('sr').innerHTML='';}
 
@@ -857,7 +853,7 @@ h+='</tr>';
 if(detail)h+='<tr id="dr'+i+'" class="detail-row" style="display:none"><td colspan="8">'+detail+'</td></tr>';
 });
 h+='</tbody></table>';document.getElementById('bres').innerHTML=h;
-BD.res.forEach(function(r,ri2){if(r.status==='recommend'&&r.recs.length>0){var el=document.getElementById('bsub'+ri2);if(el){_actMap['bsub'+ri2]={st:r.st||'',ca:r.ca||'',rd:r.rd||'',ft:r.ft||'',label:r.label||'',actualInfo:r.actualInfo||null};regTbl('bsub'+ri2,r.recs,REC_COLS,'bsub'+ri2,true);}}});
+BD.res.forEach(function(r,ri2){if(r.status==='recommend'&&r.recs.length>0){var el=document.getElementById('bsub'+ri2);if(el){if(typeof _actMap!=='undefined')_actMap['bsub'+ri2]={st:r.st||'',ca:r.ca||'',rd:r.rd||'',ft:r.ft||'',label:r.label||'',actualInfo:r.actualInfo||null};regTbl('bsub'+ri2,r.recs,REC_COLS,'bsub'+ri2,true);}}});
 var ep='<table class="dt"><thead><tr><th>Style</th><th>Label</th><th>Status</th><th>Actual RD</th><th>Sub RD</th><th>Brand</th><th>Info</th></tr></thead><tbody>';
 BD.res.forEach(function(r){var aR='',sR='',br='',info='';if(r.status==='actual'&&r.match){aR=r.match.rd;br=r.match.brand;info=r.match.sub+', '+r.match.comp+', '+r.match.wt+'g/m2';}else if(r.status==='history'&&r.hm){sR=r.hm.sr;info=r.hm.sd;}else if(r.recs.length>0){sR=r.recs[0].rd;br=r.recs[0].brand;info=r.recs[0].sub+', '+r.recs[0].comp+', '+r.recs[0].wt+'g/m2';}ep+='<tr><td>'+esc(r.st)+'</td><td>'+(r.label||'')+'</td><td>'+r.status+'</td><td>'+aR+'</td><td>'+sR+'</td><td>'+br+'</td><td style="font-size:.82em">'+info+'</td></tr>';});
 ep+='</tbody></table>';document.getElementById('epv').innerHTML=ep;
