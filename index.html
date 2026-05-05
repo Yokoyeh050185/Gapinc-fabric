@@ -285,6 +285,9 @@ function delHistEntry(id,localIdx){
 var GAS_URL='https://script.google.com/macros/s/AKfycbzUsj4zeULW6mKgFDGTqQU_yIMU702VfmQIbKJW8xKVuCRbeMNhGeV71IaaVikloX-lPw/exec';
 var HIST_LOADING=false;
 var _cmts=[],curFI='knit';
+/* Keeps the source/original fabric info for recommendation sub-tables.
+   Without this, Search Recommend and Excel Confirm can stop with '_actMap is not defined'. */
+var _actMap={};
 
 /* ═══ Filter/Sort Table System ═══ */
 var _tbl={};
