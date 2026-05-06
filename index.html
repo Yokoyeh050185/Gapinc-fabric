@@ -99,7 +99,7 @@ focus{background:rgba(61,140,94,.1);box-shadow:0 0 0 2px var(--ac)}
 <body>
 
 <div class="hdr">
-<h1>GIS FDT <em>v4.27</em></h1>
+<h1>GIS FDT <em>v4.0</em></h1>
 <div class="sts">
 <span>Knit:<b id="sK">0</b></span><span>Woven:<b id="sW">0</b></span><span>Denim:<b id="sD">0</b></span><span>History:<b id="sH">0</b></span>
 </div></div>
@@ -194,13 +194,7 @@ focus{background:rgba(61,140,94,.1);box-shadow:0 0 0 2px var(--ac)}
 <div class="stbl" id="fit" style="max-height:400px"></div>
 </div>
 <div class="cd"><h3>共用 History</h3>
-<p style="font-size:.85em;color:var(--t2);margin-bottom:10px">✓ 已連接共用 History。按 + 後會先開啟視窗，按 Save 才會同步到 Google Sheet。</p>
-<div class="fr">
-<div class="fg"><label>Apps Script Web App URL (/exec)</label><input id="gasUrl" placeholder="https://script.google.com/macros/s/.../exec"></div>
-<div class="fg" style="max-width:240px"><label>&nbsp;</label><button class="btn bp" onclick="svGasUrl()">Save Sync URL</button></div>
-<div class="fg" style="max-width:180px"><label>&nbsp;</label><button class="btn bs" onclick="loadHist()">Test / Sync</button></div>
-</div>
-<p style="font-size:.78em;color:var(--t2)">注意：Google Sheets 分享連結不能直接貼在這裡，必須使用 Apps Script 部署後產生的 Web App /exec URL。</p>
+<p style="font-size:.85em;color:var(--t2)">✓ 已連接共用 History，全組資料自動同步</p>
 </div>
 <div class="cd"><h3>Comment Templates</h3>
 <div class="fg" style="margin-bottom:12px"><label>Actual</label>
@@ -225,7 +219,7 @@ RD{actual_rd} {actual_name}, {actual_comp}, {actual_weight}
 <tr><td>1</td><td>Type</td><td>Knit→Knit, Woven→Woven, Denim→Denim</td><td><span class="bdg" style="background:rgba(231,76,60,.2);color:var(--rd)">Hard Filter</span></td></tr>
 <tr><td>2</td><td>Spandex</td><td>Must match</td><td><span class="bdg" style="background:rgba(231,76,60,.2);color:var(--rd)">Hard Filter</span></td></tr>
 <tr><td>3</td><td>Material Subtype</td><td>Same subtype preferred</td><td><span class="bdg bo">Score +40</span></td></tr>
-<tr><td>4</td><td>Weight</td><td>±15% range; over range ranks lower</td><td><span class="bdg bo">Score +30</span></td></tr>
+<tr><td>4</td><td>Weight</td><td>±15% range</td><td><span class="bdg bo">Score +30</span></td></tr>
 <tr><td>5</td><td>Composition</td><td>Primary fiber match, ±5%(w/ SP)/±10%(w/o SP) relative</td><td><span class="bdg bo">Score +45</span></td></tr>
 <tr><td>5b</td><td>Group A Fallback</td><td>Cotton↔Polyester↔Rayon (when &lt;5 results)</td><td><span class="bdg bh">Relaxed</span></td></tr>
 </tbody></table></div>
@@ -253,81 +247,46 @@ RD{actual_rd} {actual_name}, {actual_comp}, {actual_weight}
 var FI={knit:[],woven:[],denim:[]},hist=[],BD={mapped:[],res:[],wb:null,sn:[],_rows:null},eIdx=-1;
 
 /* ── Shared History: load from Google Sheets ── */
-function normHistRow(row){
-  row=row||{};
-  return{
-    id:sv(row.id||row.ID||row.Id||row.ts||row.Timestamp||''),
-    st:sv(row.st||row.style||row.Style||row['Style#']||row['style#']||''),
-    ca:sv(row.ca||row.category||row.Category||''),
-    se:sv(row.se||row.season||row.Season||''),
-    or:sv(row.or||row.origRD||row.OrigRD||row['Orig RD']||row.original_rd||''),
-    od:sv(row.od||row.origDesc||row.OrigDesc||row['Orig Desc']||''),
-    sr:sv(row.sr||row.subRD||row.SubRD||row['Sub RD']||''),
-    s2:sv(row.s2||row.subRD2||row.SubRD2||row['Sub RD2']||''),
-    sd:sv(row.sd||row.subDesc||row.SubDesc||row['Sub Desc']||''),
-    no:sv(row.no||row.notes||row.Notes||''),
-    dt:sv(row.dt||row.date||row.Date||row.ts||row.Timestamp||new Date().toISOString()).split('T')[0],
-    user:sv(row.user||row.User||'')
-  };
-}
 function loadHist(){
-  if(!GAS_URL){toast('請先設定 Apps Script Web App URL','var(--or)');return;}
+  if(!GAS_URL){return;}
   if(HIST_LOADING)return;
   HIST_LOADING=true;
-  fetch(GAS_URL+'?action=getAll&v='+Date.now(),{cache:'no-store'})
+  fetch(GAS_URL+'?action=getAll')
     .then(function(r){return r.json();})
     .then(function(d){
-      var rows=[];
-      if(Array.isArray(d))rows=d;
-      else if(d&&Array.isArray(d.data))rows=d.data;
-      else if(d&&Array.isArray(d.rows))rows=d.rows;
-      if(rows.length){
-        hist=rows.map(normHistRow);
-        save();upSt();renH();
+      if(d.ok&&d.data){
+        hist=d.data.map(function(row){
+          return{id:row.id,st:row.st,ca:row.ca,se:row.se,or:row.or,od:row.od,
+                 sr:row.sr,s2:row.s2,sd:row.sd,no:row.no,dt:(row.ts||'').split('T')[0],
+                 user:row.user||''};
+        });
+        save();renH();
         toast('History 已同步 ('+hist.length+' 筆)','var(--bl)');
-      }else if(d&&d.ok===false){
-        toast('History 同步失敗: '+(d.error||'unknown'),'var(--rd)');
-      }else{
-        toast('History 目前沒有資料','var(--or)');
       }
     })
-    .catch(function(e){toast('History 同步失敗，請確認 /exec URL 與 Apps Script 權限','var(--rd)');console.error(e);})
+    .catch(function(){})
     .finally(function(){HIST_LOADING=false;});
 }
-function postHist(action,r,id){
-  var body=Object.assign({},r,{action:action,id:id||r.id||'',data:Object.assign({},r,{id:id||r.id||''})});
-  return fetch(GAS_URL,{method:'POST',body:JSON.stringify(body)}).then(function(res){return res.json();});
-}
 function delHistEntry(id,localIdx){
-  if(!id){hist.splice(localIdx,1);save();upSt();renH();toast('已刪除本機資料');return;}
-  if(!GAS_URL){hist.splice(localIdx,1);save();upSt();renH();toast('已刪除本機資料');return;}
+  if(!GAS_URL){
+    hist.splice(localIdx,1);save();renH();toast('已刪除');return;
+  }
   if(!confirm('確定刪除這筆 History？'))return;
   fetch(GAS_URL+'?action=del&id='+encodeURIComponent(id))
     .then(function(r){return r.json();})
     .then(function(d){
-      if(d.ok!==false){hist.splice(localIdx,1);save();upSt();renH();toast('已同步刪除');}
-      else toast('刪除失敗: '+(d.error||'unknown'),'var(--rd)');
+      if(d.ok){hist.splice(localIdx,1);save();renH();toast('已刪除');}
+      else toast('刪除失敗','var(--rd)');
     })
-    .catch(function(){toast('刪除失敗，請確認 Apps Script 權限','var(--rd)');});
-}
-function svGasUrl(){
-  var el=document.getElementById('gasUrl');
-  GAS_URL=(el&&el.value?el.value.trim():GAS_URL);
-  if(!/\/exec(?:\?|$)/.test(GAS_URL)){toast('請貼 Apps Script 部署後的 /exec URL，不是 Google Sheet 或 Apps Script 編輯頁','var(--or)');return;}
-  localStorage.setItem('gasUrl',GAS_URL);
-  toast('Sync URL 已儲存');
-  loadHist();
+    .catch(function(){hist.splice(localIdx,1);save();renH();toast('已刪除 (離線)');});
 }
 
 /* ── Google Sheets API endpoint (貼上你的 Apps Script URL) ── */
 var GAS_URL='https://script.google.com/macros/s/AKfycbzUsj4zeULW6mKgFDGTqQU_yIMU702VfmQIbKJW8xKVuCRbeMNhGeV71IaaVikloX-lPw/exec';
 var HIST_LOADING=false;
 var _cmts=[],curFI='knit';
-var _actMap={};
 
 /* ═══ Filter/Sort Table System ═══ */
-window.onerror=function(msg,src,line,col,err){try{toast('JS Error: '+msg,'var(--rd)');console.error(err||msg);}catch(e){};};
-function sv(v){return (v===null||v===undefined)?'':String(v);}
 var _tbl={};
 var _fpCtx=null,_fpCol=null;
 
@@ -446,7 +405,7 @@ var FIBER_NORM={
 'acrylic':'Acrylic','hemp':'Hemp','ramie':'Ramie','cashmere':'Cashmere'
 };
 function parseComp(str){
-if(!str)return[];str=String(str).replace(/Iron\s*Shrinkage[^,]*/ig,'').replace(/Shrinkage[^,]*/ig,'');var parts=str.split(/,\s*/);var res=[];
+if(!str)return[];var parts=str.split(/,\s*/);var res=[];
 parts.forEach(function(p){var m=p.match(/(\d+(?:\.\d+)?)\s*%\s*(.*)/);if(m){var pct=parseFloat(m[1]);var raw=m[2].toLowerCase().replace(/\(.*?\)/g,'').trim();var fiber='Other';for(var k in FIBER_NORM){if(raw.includes(k)){fiber=FIBER_NORM[k];break;}}var ex=res.find(function(r){return r.fiber===fiber;});if(ex)ex.pct+=pct;else res.push({fiber:fiber,pct:pct});}});
 res.sort(function(a,b){return b.pct-a.pct;});return res;
 }
@@ -467,175 +426,41 @@ candMain.forEach(function(cf){if(!srcMain.find(function(s){return s.fiber===cf.f
 return{sc:Math.max(sc,0),grpA:grpA};
 }
 
-function compScoreSOP(srcParsed,candParsed){
-  var srcMain=srcParsed.filter(function(c){return c.fiber!=='Spandex';});
-  var candMain=candParsed.filter(function(c){return c.fiber!=='Spandex';});
-  if(srcMain.length===0||candMain.length===0)return 0;
-  if(srcMain[0].fiber!==candMain[0].fiber)return 0;
-  var diff=0;
-  srcMain.forEach(function(sf){
-    var cf=candMain.find(function(c){return c.fiber===sf.fiber;});
-    diff+=cf?Math.abs(sf.pct-cf.pct):sf.pct;
-  });
-  candMain.forEach(function(cf){
-    if(!srcMain.find(function(s){return s.fiber===cf.fiber;}))diff+=cf.pct;
-  });
-  return Math.max(0,45*(1-Math.min(diff,100)/100));
-}
-function spandexPct(parsed){
-  var sp=parsed.find(function(c){return c.fiber==='Spandex';});
-  return sp?sp.pct:0;
-}
-
 /* ═══ getRec — SOP: Type→Spandex→Subtype→Weight→Composition ═══ */
-function normSubText(v){
-  return sv(v).toLowerCase()
-    .replace(/[–—]/g,'-')
-    .replace(/\s+/g,' ')
-    .replace(/[^a-z0-9]+/g,' ')
-    .trim();
-}
-function subEqValue(fs,cs){
-  if(!fs||!cs)return false;
-  if(fs===cs)return true;
-  /* Treat duplicated subtype names as equivalent: Micro Fleece - Micro Fleece = Micro Fleece. */
-  var words=cs.split(' ');
-  if(words.length>0){
-    var doubled=(cs+' '+cs).trim();
-    if(fs===doubled)return true;
-  }
-  /* Treat detail forms that start with the exact subtype as the same family, but only for ranking after weight. */
-  return false;
-}
-function isSubExactValue(fs,cs){return subEqValue(fs,cs);}
-function isSubRelatedValue(fs,cs){
-  if(!fs||!cs)return false;
-  if(isSubExactValue(fs,cs))return true;
-  return fs.indexOf(cs)>=0||cs.indexOf(fs)>=0;
-}
-function isSubMatch(f,sub){
-  var cs=normSubText(sub);if(!cs)return false;
-  var fields=[f.sub,f.name,f.desc].map(normSubText);
-  return fields.some(function(fs){return isSubRelatedValue(fs,cs);});
-}
 function getRec(cr){
 var pool=[];
-var targetType=sv(cr.ty);
-
-/* Type = Hard Filter when the query can identify type.
-   If type is unknown, keep all types but do NOT give type score. */
-if(targetType==='Knit'||targetType==='knit')pool=[].concat(FI.knit);
-else if(targetType==='Woven'||targetType==='woven')pool=[].concat(FI.woven);
-else if(targetType==='Denim'||targetType==='denim')pool=[].concat(FI.denim);
+if(cr.ty==='Knit'||cr.ty==='knit')pool=[].concat(FI.knit);
+else if(cr.ty==='Woven'||cr.ty==='woven')pool=[].concat(FI.woven);
+else if(cr.ty==='Denim'||cr.ty==='denim')pool=[].concat(FI.denim);
 else pool=[].concat(FI.knit,FI.woven,FI.denim);
-
-/* Spandex = Must Match */
 if(cr.hasSp===true)pool=pool.filter(function(f){return f.hasSp===true;});
 else if(cr.hasSp===false)pool=pool.filter(function(f){return f.hasSp===false;});
-
-if(cr.brand)pool=pool.filter(function(f){return sv(f.brand).toLowerCase().includes(sv(cr.brand).toLowerCase());});
-pool=pool.filter(function(f){return!sv(f.desc).toUpperCase().includes('DO NOT USE')&&!sv(f.desc).toUpperCase().includes('INACTIVE');});
-
+if(cr.brand)pool=pool.filter(function(f){return f.brand&&f.brand.toLowerCase().includes(cr.brand.toLowerCase());});
+pool=pool.filter(function(f){return!(f.desc||'').toUpperCase().includes('DO NOT USE')&&!(f.desc||'').toUpperCase().includes('INACTIVE');});
 var srcParsed=cr._parsed||parseComp(cr.comp||'');
-var srcSpPct=spandexPct(srcParsed);
-
-/* Material Subtype: same subtype is preferred, but non-matching subtype stays behind. */
-var hasSubtypeMatch=false;
-if(cr.sub){hasSubtypeMatch=pool.some(function(f){return isSubMatch(f,cr.sub);});}
-
 var results=pool.map(function(f){
-  var sc=0;
-  var subExact=false, subRelated=false;
-  if(cr.sub){
-    var cs=normSubText(cr.sub),fs=normSubText(f.sub),fn=normSubText(f.name),fd=normSubText(f.desc);
-    subExact=(isSubExactValue(fs,cs)||isSubExactValue(fn,cs)||isSubExactValue(fd,cs));
-    subRelated=(subExact||isSubRelatedValue(fs,cs)||isSubRelatedValue(fn,cs)||isSubRelatedValue(fd,cs));
-    if(subExact)sc+=40;
-    else if(subRelated)sc+=30;
-  }
-
-  var weightBucket=3, weightDiff=999;
-  if(cr.wt>0&&f.wt>0){
-    weightDiff=Math.abs(f.wt-cr.wt)/cr.wt;
-    if(weightDiff<=0.15){sc+=30*(1-weightDiff/0.15);weightBucket=0;}
-    else if(weightDiff<=0.30){sc-=30;weightBucket=1;}
-    else{sc-=80;weightBucket=2;}
-  }else if(cr.wt===0){sc+=2;weightBucket=0;weightDiff=0;}
-
-  if(srcParsed.length>0){
-    var candParsed=parseComp(f.comp);
-    sc+=compScoreSOP(srcParsed,candParsed);
-    var candSpPct=spandexPct(candParsed);
-    if(srcSpPct>0&&candSpPct>0)sc+=Math.max(0,10*(1-Math.min(Math.abs(srcSpPct-candSpPct),50)/50));
-  }
-
-  /* Sort keys enforce SOP priority order even when scores are close. */
-  var subRank=cr.sub?(subExact?0:(subRelated?1:2)):0;
-  var spRank=(cr.hasSp===undefined)?0:(f.hasSp===cr.hasSp?0:1);
-  return Object.assign({},f,{sc:Math.round(sc),_subRank:subRank,_weightBucket:weightBucket,_weightDiff:weightDiff,_spRank:spRank});
-}).filter(function(s){return s.sc>0;});
-
-results.sort(function(a,b){
-  if(a._spRank!==b._spRank)return a._spRank-b._spRank;
-  /* Weight outside ±15% must never outrank an acceptable-weight candidate in the same subtype family. */
-  if(a._subRank===b._subRank&&a._weightBucket!==b._weightBucket)return a._weightBucket-b._weightBucket;
-  if(a._subRank!==b._subRank)return a._subRank-b._subRank;
-  if(a._weightBucket!==b._weightBucket)return a._weightBucket-b._weightBucket;
-  if(a._weightBucket===0&&a._weightDiff!==b._weightDiff)return a._weightDiff-b._weightDiff;
-  return b.sc-a.sc;
-});
-
-/* Group A fallback only when fewer than 5 usable results, and only after normal SOP ranking. */
+var sc=0;
+if(cr.sub){var cs=cr.sub.toLowerCase(),fs=(f.sub||'').toLowerCase();if(fs===cs)sc+=40;else if(fs.includes(cs)||cs.includes(fs))sc+=25;else if((f.name||'').toLowerCase().includes(cs))sc+=15;}
+if(cr.wt>0&&f.wt>0){var d=Math.abs(f.wt-cr.wt)/cr.wt;if(d<=0.15)sc+=30*(1-d/0.15);else if(d<=0.3)sc+=10*(1-d/0.3);}else if(cr.wt===0)sc+=2;
+if(srcParsed.length>0){var candParsed=parseComp(f.comp);var cs2=compScore(srcParsed,candParsed,cr.hasSp===true);sc+=cs2.sc;}
+return Object.assign({},f,{sc:Math.round(sc)});
+}).filter(function(s){return s.sc>0;}).sort(function(a,b){return b.sc-a.sc;});
 if(results.length<5&&srcParsed.length>0&&srcParsed[0]&&isGroupA(srcParsed[0].fiber)){
-  var existRDs=results.map(function(r){return r.rd;});
-  var relaxed=pool.map(function(f){
-    var candP=parseComp(f.comp);var cs2=compScore(srcParsed,candP,cr.hasSp===true);
-    if(!cs2.grpA)return null;
-    var sc=cs2.sc;
-    if(cr.sub&&isSubMatch(f,cr.sub))sc+=20;
-    if(cr.wt>0&&f.wt>0){var dd=Math.abs(f.wt-cr.wt)/cr.wt;if(dd<=0.15)sc+=15*(1-dd/0.15);else sc-=20;}
-    return Object.assign({},f,{sc:Math.round(sc),_subRank:cr.sub?(isSubMatch(f,cr.sub)?1:3):1,_weightBucket:2,grpA:true});
-  }).filter(function(s){return s&&s.sc>0&&!existRDs.includes(s.rd);});
-  results=results.concat(relaxed);
-  results.sort(function(a,b){
-    if(a._subRank!==b._subRank)return a._subRank-b._subRank;
-    if(a._weightBucket!==b._weightBucket)return a._weightBucket-b._weightBucket;
-    return b.sc-a.sc;
-  });
+var relaxed=pool.map(function(f){var sc=0;if(cr.sub){var cs=cr.sub.toLowerCase(),fs=(f.sub||'').toLowerCase();if(fs===cs)sc+=40;else if(fs.includes(cs)||cs.includes(fs))sc+=25;}if(cr.wt>0&&f.wt>0){var dd=Math.abs(f.wt-cr.wt)/cr.wt;if(dd<=0.15)sc+=30*(1-dd/0.15);}var candP=parseComp(f.comp);var cs2=compScore(srcParsed,candP,cr.hasSp===true);if(cs2.grpA)sc+=cs2.sc;return Object.assign({},f,{sc:Math.round(sc),grpA:true});}).filter(function(s){return s.sc>0&&s.grpA;}).sort(function(a,b){return b.sc-a.sc;});
+var existRDs=results.map(function(r){return r.rd;});relaxed.forEach(function(r){if(!existRDs.includes(r.rd))results.push(r);});results.sort(function(a,b){return b.sc-a.sc;});
 }
 return results;
 }
-/* ═══ parseFT — with oz conversion ═══ */
-function typeFromSubtype(sub, ft){
-var s=sv(sub).toLowerCase();
-var x=sv(ft).toLowerCase();
-/* Material Subtype is the source of truth for Knit / Woven / Denim.
-   Dye method words like Piece Dye / Yarn Dye must NOT force Woven. */
-var knitSubs=['single jersey','double jersey','double jacquard','double knit','interlock','rib','fleece','terry','micro fleece','velour','mesh','warp knit','knit - warp','tricot','jersey','pique','waffle','sherpa','thermal','pointelle','boucle','french terry','flat knit','raschel knit','drop needle rib','ponte','ponte de roma'];
-var wovenSubs=['double weave','corduroy','satin','sateen','oxford','twill','plain weave','plain','dobby','ripstop','herringbone','houndstooth','seersucker','flannel','chambray','chiffon','poplin','canvas','crepe','gauze','lawn','velvet','taffeta','georgette','organza','voile','faille','melton','bedford cord','cavalry','tricotine','tweed','eyelet'];
-if(s==='denim'||/\bdenim\b/.test(x))return 'Denim';
-for(var i=0;i<knitSubs.length;i++){if(s.includes(knitSubs[i]))return 'Knit';}
-for(var j=0;j<wovenSubs.length;j++){if(s.includes(wovenSubs[j]))return 'Woven';}
-/* Lace can exist in different libraries, but in our input if it is stretch/denier lace, treat it as Knit. */
-if(s==='lace'&&/spandex|elastane|lycra|denier/i.test(ft))return 'Knit';
-return '';
-}
 
-function extractWeight(ft){
-  ft=sv(ft);
-  var wm=ft.match(/(\d+(?:\.\d+)?)\s*(g\s*\/\s*m2|g\/m2|gsm|gm|g\s*m2)/i);
-  if(wm)return parseFloat(wm[1]);
-  var ozm=ft.match(/(\d+(?:\.\d+)?)\s*(oz\/?s?q?\s*y(?:d|ard)|oz\/yd2|osy)/i);
-  if(ozm)return Math.round(parseFloat(ozm[1])*33.906);
-  return 0;
-}
+/* ═══ parseFT — with oz conversion ═══ */
 function parseFT(ft){
-ft=sv(ft);
 var ty='';
+if(/\(Woven\)|,\s*woven\b|\bwoven\b|plain[\s\-]weave|\bplain\b(?!\s*jersey)|twill\b|poplin\b|seersucker\b|oxford\s*cloth|broadcloth|\bcanvas\b|\bchiffon\b|\bvoile\b|\bdobby\b|\bjacquard\b(?!\s*knit)|\bcrepe\b|\bgauze\b|\blawn\b|\bsateen\b|\bvelvet\b|\bcorduroy\b|\bflannel\b|\bchambray\b|\bsatin\b|\btaffeta\b|\bgeorgette\b|\borganza\b|\bripstop\b|\bherringbone\b|\bmuslin\b|\bcharmeuse\b|\bhabutai\b|\bPiece\s*Dye\b|\bYarn\s*Dye\b/i.test(ft))ty='Woven';
+else if(/\(Knit\)|,\s*knit\b|(?<!\w)jersey(?!\s*weave)|\binterlock\b|\brib\b|\bfleece\b|\bpique\b|\bterry\b|\bfrench\s*terry\b|\bsweatshirt\b|\bponti\b|\bponte\b|\bvelour\b/i.test(ft))ty='Knit';
+else if(/denim/i.test(ft))ty='Denim';
 var sp=/spandex|elastane|lycra/i.test(ft);
 var sub='';
 var subs=[
-'Lace',
 'Double Weave- Double Face','Double Weave- Double Weave','Double Weave- Others','Double Weave',
 'Corduroy- Corduroy','Corduroy- Others','Corduroy',
 'Satin- Sateen','Satin- Satin','Satin- Moleskin','Satin',
@@ -672,20 +497,11 @@ var subs=[
 'Ponte de Roma','Ponte','Jacquard',
 'Others- Faux Fur','Bonded','Denim'
 ];
-/* Match the most specific subtype first. Example: Micro Fleece must be found before generic Fleece. */
-subs.sort(function(a,b){return b.length-a.length;});
 for(var i=0;i<subs.length;i++){if(ft.toLowerCase().includes(subs[i].toLowerCase())){sub=subs[i];break;}}
-
-/* First decide Type from Material Subtype. This prevents Fleece from being parsed as Woven just because text contains Piece Dye. */
-ty=typeFromSubtype(sub,ft);
-
-/* If subtype cannot decide type, then use explicit type words / weave keywords. */
-if(!ty){
-  if(/\(Knit\)|,\s*knit\b|(?<!\w)jersey(?!\s*weave)|\binterlock\b|\brib\b|\bfleece\b|\bpique\b|\bterry\b|\bfrench\s*terry\b|\bsweatshirt\b|\bponti\b|\bponte\b|\bvelour\b/i.test(ft))ty='Knit';
-  else if(/\(Woven\)|,\s*woven\b|\bwoven\b|plain[\s\-]weave|\bplain\b(?!\s*jersey)|twill\b|poplin\b|seersucker\b|oxford\s*cloth|broadcloth|\bcanvas\b|\bchiffon\b|\bvoile\b|\bdobby\b|\bjacquard\b(?!\s*knit)|\bcrepe\b|\bgauze\b|\blawn\b|\bsateen\b|\bvelvet\b|\bcorduroy\b|\bflannel\b|\bchambray\b|\bsatin\b|\btaffeta\b|\bgeorgette\b|\borganza\b|\bripstop\b|\bherringbone\b|\bmuslin\b|\bcharmeuse\b|\bhabutai\b/i.test(ft))ty='Woven';
-  else if(/denim/i.test(ft))ty='Denim';
-}
-var wt=extractWeight(ft);
+var wt=0;
+var wm=ft.match(/(\d+(?:\.\d+)?)\s*(g\/m2|gsm|gm)/i);
+if(wm){wt=parseFloat(wm[1]);}
+else{var ozm=ft.match(/(\d+(?:\.\d+)?)\s*(oz\/?s?q?\s*y(?:d|ard)|oz\/yd2|osy)/i);if(ozm)wt=Math.round(parseFloat(ozm[1])*33.906);}
 var comp='';
 ['Cotton','Polyester','Nylon','Viscose','Modal','Lyocell','Wool','Linen','Rayon','Tencel','Spandex','Elastane','Lycra','Acrylic'].forEach(function(w){if(ft.toLowerCase().includes(w.toLowerCase()))comp+=(comp?', ':'')+w;});
 var _parsed=parseComp(ft);
@@ -698,7 +514,7 @@ function cpC(i){var t=_cmts[i];if(!t)return;navigator.clipboard.writeText(t).the
 function addHist(ci,ctx,idx){
 var T=_tbl[ctx];if(!T)return;var f=T.filtered[idx];if(!f)return;
 /* Get actual info from _actMap if available (Batch sub-table) */
-var act=(typeof _actMap!=='undefined'&&_actMap[ctx])?_actMap[ctx]:null;
+var act=_actMap[ctx]||null;
 var origRD='',origDesc='',styleSt='',styleCa='';
 if(act){
   styleSt=act.st||'';
@@ -730,8 +546,14 @@ toast('Comment copied with Actual info! Fill Season to save.','var(--bl)');
 }
 
 function init(){
-/* 1. Load fabric-data.json from same folder (GitHub Pages) */
-fetch('fabric-data.json')
+/* 1. Load fabric-data.json */
+var _fabricUrl = location.protocol === 'file:'
+  ? null
+  : (location.hostname.includes('github.io')
+      ? 'https://yokoyeh050185.github.io/Gapinc-fabric/fabric-data.json'
+      : 'fabric-data.json');
+if(_fabricUrl){
+fetch(_fabricUrl)
   .then(function(r){return r.json();})
   .then(function(data){
     FI.knit=data.knit||[];
@@ -749,13 +571,13 @@ fetch('fabric-data.json')
     upSt();showFI('knit');
   var gEl=document.getElementById('gasUrl');if(gEl&&GAS_URL)gEl.value=GAS_URL;
   });
+} /* end if(_fabricUrl) */
 /* Load history & templates (no need to wait for fabric) */
 try{
   var h=localStorage.getItem('ghi');if(h)hist=JSON.parse(h);
+  loadHist();
   var g=localStorage.getItem('gasUrl');if(g)GAS_URL=g;
-  var gEl2=document.getElementById('gasUrl');if(gEl2&&GAS_URL)gEl2.value=GAS_URL;
-  var t=localStorage.getItem('gtl');if(t){var o=JSON.parse(t);document.getElementById('tA').value=o.a||document.getElementById('tA').value;document.getElementById('tS').value=o.s||document.getElementById('tS').value;}
-  if(GAS_URL)loadHist();
+var t=localStorage.getItem('gtl');if(t){var o=JSON.parse(t);document.getElementById('tA').value=o.a||document.getElementById('tA').value;document.getElementById('tS').value=o.s||document.getElementById('tS').value;}
 }catch(e){}
 renH();
 }
@@ -771,147 +593,40 @@ function genC(ty,f,act){var tpl=ty==='a'?document.getElementById('tA').value:doc
 /* ═══ FI Load + Browser ═══ */
 function ldFI(ty){var ids={knit:'fK',woven:'fW',denim:'fD'};var file=document.getElementById(ids[ty]).files[0];if(!file){toast('Select file','var(--or)');return;}var rd=new FileReader();rd.onload=function(e){try{var wb=XLSX.read(e.target.result,{type:'array'});var ws=wb.Sheets[wb.SheetNames[0]];var rows=XLSX.utils.sheet_to_json(ws,{defval:''});FI[ty]=rows.map(function(r){return normR(r,ty);}).filter(function(r){return r.rd;});save();upSt();showFI(ty);toast(ty.toUpperCase()+' loaded: '+FI[ty].length);}catch(er){toast('Error: '+er.message,'var(--rd)');}};rd.readAsArrayBuffer(file);}
 function normR(r,ty){var brand=r['Originating Brands']||'';var rd=String(r['RD Number']||'').replace(/^RD#?/i,'').trim();var desc=r['Material Brief Description']||'';var name=r['Material Name']||'';var sub=r['Material Subtype']||'';var wt=parseFloat(r['Before Wash Weight'])||0;var uom=r['Weight UOM']||'g/m2';var comp=r['Composition']||'';var cf=r['Composition Fibers']||'';var spx=r['Spandex Content']||'';var hasSp=/spandex|elastane|lycra/i.test(comp)||(spx&&!/without/i.test(spx));if(uom&&/oz/i.test(uom)&&wt>0)wt=Math.round(wt*33.906);return{brand:brand,rd:rd,desc:desc,name:name,sub:sub,wt:wt,comp:comp,cf:cf,hasSp:hasSp,ty:ty};}
-function showFI(ty){
-curFI=ty;document.getElementById('fcK').textContent=FI.knit.length;document.getElementById('fcW').textContent=FI.woven.length;document.getElementById('fcD').textContent=FI.denim.length;
-document.querySelectorAll('.fi-tab').forEach(function(b){b.classList.remove('a');});var tid={knit:'ftK',woven:'ftW',denim:'ftD'};document.getElementById(tid[ty]).classList.add('a');
-var q=sv((document.getElementById('fiq')||{}).value);var ql=q.toLowerCase();var data=FI[ty]||[];
-if(q)data=data.filter(function(f){return sv(f.rd).toLowerCase().includes(ql)||sv(f.name).toLowerCase().includes(ql)||sv(f.comp).toLowerCase().includes(ql)||sv(f.sub).toLowerCase().includes(ql)||sv(f.brand).toLowerCase().includes(ql);});
-var h='<p style="font-size:.82em;color:var(--t2);margin-bottom:6px">'+ty.toUpperCase()+': '+data.length+' / '+(FI[ty]||[]).length+'</p><table class="dt"><thead><tr><th>RD</th><th>Brand</th><th>Subtype</th><th>Name</th><th>Composition</th><th>Weight</th><th>Spandex</th><th></th></tr></thead><tbody>';
-data.forEach(function(f){var ri=FI[ty].indexOf(f);h+='<tr><td contenteditable onblur="edFI(\''+ty+'\','+ri+',\'rd\',this.textContent)"><b>'+esc(sv(f.rd))+'</b></td><td contenteditable onblur="edFI(\''+ty+'\','+ri+',\'brand\',this.textContent)">'+esc(sv(f.brand))+'</td><td contenteditable onblur="edFI(\''+ty+'\','+ri+',\'sub\',this.textContent)">'+esc(sv(f.sub))+'</td><td contenteditable onblur="edFI(\''+ty+'\','+ri+',\'name\',this.textContent)" style="max-width:180px;font-size:.82em">'+esc(sv(f.name))+'</td><td contenteditable onblur="edFI(\''+ty+'\','+ri+',\'comp\',this.textContent)" style="max-width:220px;font-size:.8em">'+esc(sv(f.comp))+'</td><td contenteditable onblur="edFI(\''+ty+'\','+ri+',\'wt\',this.textContent)">'+esc(sv(f.wt))+'</td><td>'+(f.hasSp?'<span class="bdg ba">Yes</span>':'No')+'</td><td><button class="btn bsm br" onclick="delFI(\''+ty+'\','+ri+')">Del</button></td></tr>';});
-h+='</tbody></table>';document.getElementById('fit').innerHTML=h;
-}
+function showFI(ty){curFI=ty;document.getElementById('fcK').textContent=FI.knit.length;document.getElementById('fcW').textContent=FI.woven.length;document.getElementById('fcD').textContent=FI.denim.length;document.querySelectorAll('.fi-tab').forEach(function(b){b.classList.remove('a');});var tid={knit:'ftK',woven:'ftW',denim:'ftD'};document.getElementById(tid[ty]).classList.add('a');var q=(document.getElementById('fiq')||{}).value||'';var ql=q.toLowerCase();var data=FI[ty];if(q)data=data.filter(function(f){return f.rd.includes(ql)||(f.name||'').toLowerCase().includes(ql)||(f.comp||'').toLowerCase().includes(ql)||(f.sub||'').toLowerCase().includes(ql)||(f.brand||'').toLowerCase().includes(ql);});var h='<p style="font-size:.82em;color:var(--t2);margin-bottom:6px">'+ty.toUpperCase()+': '+data.length+' / '+FI[ty].length+'</p><table class="dt"><thead><tr><th>RD</th><th>Brand</th><th>Subtype</th><th>Name</th><th>Composition</th><th>Weight</th><th>Spandex</th><th></th></tr></thead><tbody>';data.forEach(function(f){var ri=FI[ty].indexOf(f);h+='<tr><td contenteditable onblur="edFI(\''+ty+'\','+ri+',\'rd\',this.textContent)"><b>'+f.rd+'</b></td><td contenteditable onblur="edFI(\''+ty+'\','+ri+',\'brand\',this.textContent)">'+f.brand+'</td><td contenteditable onblur="edFI(\''+ty+'\','+ri+',\'sub\',this.textContent)">'+f.sub+'</td><td contenteditable onblur="edFI(\''+ty+'\','+ri+',\'name\',this.textContent)" style="max-width:180px;font-size:.82em">'+f.name+'</td><td contenteditable onblur="edFI(\''+ty+'\','+ri+',\'comp\',this.textContent)" style="max-width:220px;font-size:.8em">'+f.comp+'</td><td contenteditable onblur="edFI(\''+ty+'\','+ri+',\'wt\',this.textContent)">'+f.wt+'</td><td>'+(f.hasSp?'<span class="bdg ba">Yes</span>':'No')+'</td><td><button class="btn bsm br" onclick="delFI(\''+ty+'\','+ri+')">Del</button></td></tr>';});h+='</tbody></table>';document.getElementById('fit').innerHTML=h;}
 function edFI(ty,idx,key,val){if(key==='wt')FI[ty][idx][key]=parseFloat(val)||0;else FI[ty][idx][key]=val.trim();}
 function delFI(ty,idx){if(!confirm('Delete?'))return;FI[ty].splice(idx,1);save();upSt();showFI(ty);toast('Deleted','var(--or)');}
 function saveFI(){save();upSt();showFI(curFI);toast('FI saved!');}
 
-/* ═══ Search Logic ═══
-   Priority: 1) RD exists in Knit/Woven/Denim Actual Index
-             2) If not, check shared/local History
-             3) If not, parse fabric text and recommend substitute fabric
-*/
-function normRD(v){
-  var s=sv(v).trim();
-  var m=s.match(/(?:RD#?\s*)?(\d{5,7})(?:\.0+)?/i);
-  if(m)return m[1].replace(/^0+/,'');
-  return s.replace(/^RD#?\s*/i,'').replace(/\.0+$/,'').replace(/^0+/,'').trim();
-}
-function allFI(){return [].concat(FI.knit||[],FI.woven||[],FI.denim||[]);}
-function extractRDsFromText(q){
-  var text=sv(q);
-  var arr=[];
-  (text.match(/RD#?\s*\d{5,7}/gi)||[]).forEach(function(m){arr.push(m.replace(/RD#?/i,'').trim());});
-  (text.match(/(?<![A-Za-z0-9])(\d{5,7})(?![0-9])/g)||[]).forEach(function(m){arr.push(m.trim());});
-  return arr.filter(function(v,i,a){return v&&a.indexOf(v)===i;});
-}
-function findActualByRDs(rdNums){
-  if(!rdNums||!rdNums.length)return[];
-  var all=allFI();
-  var found=[];
-  rdNums.forEach(function(n){
-    var nn=normRD(n);
-    all.forEach(function(f){if(normRD(f.rd)===nn&&found.indexOf(f)<0)found.push(f);});
-  });
-  return found;
-}
-function findHistoryByQuery(q,rdNums){
-  hist=(hist||[]).map(normHistRow);
-  var qText=sv(q).toLowerCase().trim();
-  var rdSet=(rdNums||[]).map(normRD).filter(Boolean);
-
-  function rowText(h){
-    return [h.id,h.st,h.ca,h.se,h.or,h.od,h.sr,h.s2,h.sd,h.no,h.dt,h.user]
-      .map(function(v){return sv(v).toLowerCase();}).join(' ');
-  }
-
-  /* 1) If query has RD, match only exact History RD fields.
-     Do NOT use loose text/style matching here, otherwise an unrelated style
-     or description can incorrectly become History Sub. */
-  if(rdSet.length){
-    var exact=hist.filter(function(h){
-      var candidates=[h.or,h.sr,h.s2].map(normRD).filter(Boolean);
-      return rdSet.some(function(r){return candidates.indexOf(r)>=0;});
-    });
-    return exact;
-  }
-
-  /* 2) No RD: search all normalized History fields */
-  if(!qText)return[];
-  return hist.filter(function(h){return rowText(h).indexOf(qText)>=0;});
-}
-function parseSlashQuery(q){
-  var raw=sv(q).trim();
-  if(raw.indexOf('/')<0)return null;
-
-  /* Expected paste format: RD / Material Subtype / composition text
-     Important: composition text can contain units like g/m2 or 50 / 48 inch.
-     Do NOT split every slash, otherwise 205.0 g/m2 becomes 205.0 g m2 and weight becomes 0. */
-  var m=raw.match(/^\s*([^/]+?)\s*\/\s*([^/]+?)\s*\/\s*([\s\S]+)$/);
-  if(!m)return null;
-
-  var rdPart=m[1].trim();
-  var subtype=m[2].trim();
-  var compText=m[3].trim();
-  var parseText=subtype+' '+compText;
-  var parsed=parseFT(parseText);
-
-  parsed.sub=subtype;
-  parsed.ty=typeFromSubtype(subtype,parseText)||parsed.ty;
-  parsed.hasSp=/spandex|elastane|lycra/i.test(parseText);
-  parsed.wt=parsed.wt||extractWeight(compText)||extractWeight(parseText);
-  parsed._parsed=parseComp(compText);
-  if(!parsed._parsed.length)parsed._parsed=parseComp(parseText);
-  parsed.comp=compText;
-  parsed.rd=extractRDsFromText(rdPart)[0]||'';
-  return parsed;
-}
-function parsedFromQuery(q){
-  /* Slash format has the highest priority because the user is explicitly telling us: RD / Subtype / composition text. */
-  var slashParsed=parseSlashQuery(q);
-  if(slashParsed)return slashParsed;
-  var cleaned=cleanFabricForParse(q);
-  var parsed=parseFT(cleaned);
-  if(!parsed.ty&&!parsed.wt&&!parsed.comp&&!parsed.sub){parsed=parseFT(q);}
-  return parsed;
-}
+/* ═══ Search ═══ */
 function doS(){
 var q=document.getElementById('qi').value.trim();if(!q){toast('Enter search','var(--or)');return;}
-var o=document.getElementById('sr');_cmts=[];_actMap['srRec']=null;
-var rdNums=extractRDsFromText(q);
-var act=findActualByRDs(rdNums);
-var hi=[];
-var parsed=null;
-var rec=[];
-
-/* Step 1: If RD exists in Fabric Index, stop here and show Actual */
-if(act.length===0){
-  /* Step 2: Only when Actual not found, search History */
-  hi=findHistoryByQuery(q,rdNums);
+var o=document.getElementById('sr');_cmts=[];
+var _rdPre=(q.match(/RD#?[0-9]{5,7}/gi)||[]);var rdM=_rdPre.map(function(m){return m.replace(/^RD#?/i,'');});if(rdM.length===0){var rdPlain=(q.match(/(?<![A-Za-z0-9])([0-9]{5,7})(?![0-9])/g)||[]);rdPlain.forEach(function(v){if(!rdM.includes(v))rdM.push(v);});}var rdNums=rdM.filter(function(v,i,a){return a.indexOf(v)===i;});
+var act=[];if(rdNums.length>0){var all=[].concat(FI.knit,FI.woven,FI.denim);rdNums.forEach(function(n){act=act.concat(all.filter(function(f){return f.rd.replace(/^0+/,'')===n.replace(/^0+/,'');}));});}
+var ql=q.toLowerCase();var hi=[];
+if(rdNums.length>0){
+  /* Match history only by exact RD number */
+  hi=hist.filter(function(h){
+    return rdNums.some(function(n){return(h.or||'')=== n||(h.sr||'')=== n;});
+  });
+} else {
+  /* Text search: match style or orig desc */
+  hi=hist.filter(function(h){
+    return(h.st||'').toLowerCase().includes(ql)||(h.od||'').toLowerCase().includes(ql);
+  });
 }
-if(act.length===0&&hi.length===0){
-  /* Step 3: Only when Actual + History are not found, recommend */
-  parsed=parsedFromQuery(q);
-  if(parsed.wt>0||parsed.comp||parsed.sub||parsed.ty){rec=getRec(parsed).slice(0,30);}
-}
-
+var parsed=parseFT(q);var rec=[];
+if(act.length===0&&hi.length===0&&(parsed.wt>0||parsed.comp||parsed.sub))rec=getRec(parsed).slice(0,30);
 var h='';
-if(act.length>0){
-  h+='<div class="cd"><h3><span class="bdg ba">Actual</span> '+act.length+'</h3><div style="font-size:.82em;color:var(--t2);margin-bottom:8px">RD found in Knit / Woven / Denim index. History and Recommend are skipped.</div><table class="dt"><thead><tr><th>RD</th><th>Brand</th><th>Type</th><th>Subtype</th><th>Name</th><th>Composition</th><th>Weight</th><th></th></tr></thead><tbody>';
-  act.forEach(function(f){var ci=_cmts.length;_cmts.push(genC('a',f));h+='<tr><td><b>'+esc(sv(f.rd))+'</b></td><td><span class="bdg bb">'+esc(sv(f.brand))+'</span></td><td><span class="tg">'+esc(sv(f.ty))+'</span></td><td>'+esc(sv(f.sub))+'</td><td>'+esc(sv(f.name))+'</td><td style="max-width:250px;font-size:.8em">'+esc(sv(f.comp))+'</td><td>'+esc(sv(f.wt))+'</td><td><button class="btn bsm bp" onclick="cpC('+ci+')">Copy</button></td></tr>';});
-  h+='</tbody></table></div>';
+if(act.length>0){h+='<div class="cd"><h3><span class="bdg ba">Actual</span> '+act.length+'</h3><table class="dt"><thead><tr><th>RD</th><th>Brand</th><th>Subtype</th><th>Name</th><th>Composition</th><th>Weight</th><th></th></tr></thead><tbody>';act.forEach(function(f){var ci=_cmts.length;_cmts.push(genC('a',f));h+='<tr><td><b>'+f.rd+'</b></td><td><span class="bdg bb">'+f.brand+'</span></td><td>'+f.sub+'</td><td>'+f.name+'</td><td style="max-width:250px;font-size:.8em">'+f.comp+'</td><td>'+f.wt+'</td><td><button class="btn bsm bp" onclick="cpC('+ci+')">Copy</button></td></tr>';});h+='</tbody></table></div>';}
+if(hi.length>0){h+='<div class="cd"><h3><span class="bdg bh">History</span> '+hi.length+'</h3><table class="dt"><thead><tr><th>Style</th><th>Season</th><th>Orig RD</th><th>Sub RD</th><th>Desc</th><th></th></tr></thead><tbody>';hi.forEach(function(r){var ci=_cmts.length;_cmts.push(genC('s',{rd:r.sr,name:r.sd,comp:r.sd,wt:'',sub:''}));h+='<tr><td>'+r.st+'</td><td>'+r.se+'</td><td>'+r.or+'</td><td><b>'+r.sr+'</b></td><td style="font-size:.85em">'+r.sd+'</td><td><button class="btn bsm bp" onclick="cpC('+ci+')">Copy</button></td></tr>';});h+='</tbody></table></div>';}
+if(rec.length>0){h+='<div class="cd"><h3><span class="bdg bo">Recommend</span> '+rec.length+'</h3><div style="font-size:.82em;color:var(--t2);margin-bottom:8px"><b>Parsed:</b> Type=<span class="tg">'+(parsed.ty||'?')+'</span> Spandex='+(parsed.hasSp?'Yes':'No')+' Subtype=<span class="tg">'+(parsed.sub||'?')+'</span> Weight='+parsed.wt+'g/m2</div><div id="srRec"></div></div>';}
+if(!h)h='<div class="emp">No results.</div>';o.innerHTML=h;
+if(rec.length>0){
+  _actMap['srRec']={st:q,ca:'',rd:rdNums[0]||'',ft:q,label:'',actualInfo:act.length>0?act[0]:null};
+  regTbl('srRec',rec,REC_COLS,'srRec',true);
 }
-else if(hi.length>0){
-  h+='<div class="cd"><h3><span class="bdg bh">History</span> '+hi.length+'</h3><div style="font-size:.82em;color:var(--t2);margin-bottom:8px">RD was not found in Fabric Index, but matched History. Recommend is skipped.</div><table class="dt"><thead><tr><th>Style</th><th>Season</th><th>Orig RD</th><th>Sub RD</th><th>Desc</th><th></th></tr></thead><tbody>';
-  hi.forEach(function(r){var ci=_cmts.length;_cmts.push(genC('s',{rd:r.sr,name:r.sd,comp:r.sd,wt:'',sub:''}));h+='<tr><td>'+esc(sv(r.st))+'</td><td>'+esc(sv(r.se))+'</td><td>'+esc(sv(r.or))+'</td><td><b>'+esc(sv(r.sr))+'</b>'+(r.s2?' / '+esc(sv(r.s2)):'')+'</td><td style="font-size:.85em">'+esc(sv(r.sd))+'</td><td><button class="btn bsm bp" onclick="cpC('+ci+')">Copy</button></td></tr>';});
-  h+='</tbody></table></div>';
-}
-else if(rec.length>0){
-  h+='<div class="cd"><h3><span class="bdg bo">Recommend</span> '+rec.length+'</h3><div style="font-size:.82em;color:var(--t2);margin-bottom:8px">RD was not found in Fabric Index or History, so the system recommends by parsed fabric text.<br><b>Parsed:</b> Type=<span class="tg">'+esc(parsed.ty||'?')+'</span> Spandex='+(parsed.hasSp?'Yes':'No')+' Subtype=<span class="tg">'+esc(parsed.sub||'?')+'</span> Weight='+esc(sv(parsed.wt))+'g/m2</div><div id="srRec"></div></div>';
-}
-else{
-  h='<div class="emp">No Actual RD / History / Recommendation found. Please include fabric type, composition, and weight for recommendation.</div>';
-}
-o.innerHTML=h;
-if(rec.length>0){_actMap['srRec']={st:q,ca:'',rd:rdNums[0]||'',ft:q,label:'',actualInfo:null};regTbl('srRec',rec,REC_COLS,'srRec',true);}
 }
 function clrS(){document.getElementById('qi').value='';document.getElementById('sr').innerHTML='';}
 
@@ -949,13 +664,15 @@ if(!GAS_URL){
 }
 var btn=document.querySelector('#mo .bp');if(btn){btn.disabled=true;btn.textContent='儲存中...';}
 var method=eIdx>=0?'edit':'add';
-var saveId=(eIdx>=0&&hist[eIdx]&&hist[eIdx].id)?hist[eIdx].id:'';
-postHist(method,r,saveId)
+var body=Object.assign({action:method},r);
+if(eIdx>=0&&hist[eIdx]&&hist[eIdx].id)body.id=hist[eIdx].id;
+fetch(GAS_URL,{method:'POST',body:JSON.stringify(body)})
+  .then(function(res){return res.json();})
   .then(function(d){
     if(d.ok){
       if(eIdx>=0){hist[eIdx]=Object.assign({},r,{id:hist[eIdx].id||d.id});}
       else{r.id=d.id;hist.push(r);}
-      save();upSt();renH();hiMo();
+      save();renH();hiMo();
       toast('✓ 已同步到共用 History','var(--gn)');
     } else {
       toast('儲存失敗: '+(d.error||'unknown'),'var(--rd)');
@@ -971,8 +688,8 @@ postHist(method,r,saveId)
     if(btn){btn.disabled=false;btn.textContent='Save';}
   });
 }
-function delH(i){if(!hist[i])return;delHistEntry(hist[i].id,i);}
-function renH(){var q=(document.getElementById('hq')||{}).value||'';var ql=sv(q).toLowerCase();hist=hist.map(normHistRow);var fl=hist;if(q)fl=hist.filter(function(h){return sv(h.st).toLowerCase().includes(ql)||sv(h.or).toLowerCase().includes(ql)||sv(h.sr).toLowerCase().includes(ql)||sv(h.sd).toLowerCase().includes(ql);});var el=document.getElementById('ht');if(!fl.length){el.innerHTML='<div class="emp">No records</div>';return;}var h='<table class="dt"><thead><tr><th>Date</th><th>Season</th><th>Cat</th><th>Style</th><th>Orig RD</th><th>Sub RD</th><th>Desc</th><th></th></tr></thead><tbody>';fl.forEach(function(r){var ri=hist.indexOf(r);h+='<tr><td>'+esc(sv(r.dt))+'</td><td>'+esc(sv(r.se))+'</td><td>'+esc(sv(r.ca))+'</td><td>'+esc(sv(r.st))+'</td><td>'+esc(sv(r.or))+'</td><td><b>'+esc(sv(r.sr))+'</b>'+(r.s2?' / '+esc(sv(r.s2)):'')+'</td><td style="font-size:.82em">'+esc(sv(r.sd))+'</td><td><button class="btn bsm bs" onclick="shMo('+ri+')">Edit</button> <button class="btn bsm br" onclick="delH('+ri+')">Del</button></td></tr>';});h+='</tbody></table>';el.innerHTML=h;}
+function delH(i){if(!confirm('Delete?'))return;hist.splice(i,1);save();upSt();renH();toast('Deleted','var(--or)');}
+function renH(){var q=(document.getElementById('hq')||{}).value||'';var ql=q.toLowerCase();var fl=hist;if(q)fl=hist.filter(function(h){return(h.st||'').toLowerCase().includes(ql)||(h.or||'').includes(ql)||(h.sr||'').includes(ql);});var el=document.getElementById('ht');if(!fl.length){el.innerHTML='<div class="emp">No records</div>';return;}var h='<table class="dt"><thead><tr><th>Date</th><th>Season</th><th>Cat</th><th>Style</th><th>Orig RD</th><th>Sub RD</th><th>Desc</th><th></th></tr></thead><tbody>';fl.forEach(function(r){var ri=hist.indexOf(r);h+='<tr><td>'+r.dt+'</td><td>'+r.se+'</td><td>'+r.ca+'</td><td>'+r.st+'</td><td>'+r.or+'</td><td><b>'+r.sr+'</b>'+(r.s2?' / '+r.s2:'')+'</td><td style="font-size:.82em">'+r.sd+'</td><td><button class="btn bsm bs" onclick="shMo('+ri+')">Edit</button> <button class="btn bsm br" onclick="delH('+ri+')">Del</button></td></tr>';});h+='</tbody></table>';el.innerHTML=h;}
 function exH(){var hdr='style,category,season,origRD,origDesc,subRD,subRD2,subDesc,notes,date';var rows=hist.map(function(h){return[h.st,h.ca,h.se,h.or,h.od,h.sr,h.s2,h.sd,h.no,h.dt].map(function(v){return'"'+(v||'').replace(/"/g,'""')+'"';}).join(',');});var csv=hdr+'\n'+rows.join('\n');var b=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});var a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='history_'+new Date().toISOString().split('T')[0]+'.csv';a.click();}
 function imH(e){var f=e.target.files[0];if(!f)return;var r=new FileReader();r.onload=function(ev){try{var lines=ev.target.result.split('\n').filter(function(l){return l.trim();});if(lines.length<2){toast('Empty CSV','var(--or)');return;}var imported=[];for(var i=1;i<lines.length;i++){var vals=[],cur='',inQ=false;for(var c=0;c<lines[i].length;c++){var ch=lines[i][c];if(ch==='"')inQ=!inQ;else if(ch===','&&!inQ){vals.push(cur);cur='';}else cur+=ch;}vals.push(cur);vals=vals.map(function(v){return v.replace(/""/g,'"').trim();});imported.push({st:vals[0]||'',ca:vals[1]||'',se:vals[2]||'',or:vals[3]||'',od:vals[4]||'',sr:vals[5]||'',s2:vals[6]||'',sd:vals[7]||'',no:vals[8]||'',dt:vals[9]||''});}hist=hist.concat(imported);save();upSt();renH();toast('Imported '+imported.length);}catch(er){toast('CSV failed','var(--rd)');}};r.readAsText(f);e.target.value='';}
 function svTpl(){localStorage.setItem('gtl',JSON.stringify({a:document.getElementById('tA').value,s:document.getElementById('tS').value}));toast('Saved!');}
@@ -1013,62 +730,71 @@ BD._rows=rows;gStp(1);toast('Loaded: '+rows.length+' rows (header row '+(hdrRow+
 };r.readAsArrayBuffer(f);
 }
 
-function cleanFabricForParse(ft){
-  if(!ft)return'';
-  var s=String(ft).replace(/\r/g,'\n').replace(/，/g,',').replace(/：/g,':').trim();
-  s=s.replace(/^\s*(?:\d+\.)\s*/,'');
-  s=s.replace(/^[-–—•*\s]+/,'');
-  /* Remove shell/lining label and codes before it, e.g. ZT-SZ0040(表布), ... */
-  s=s.replace(/^.*?\((表布|面布|裡布|里布|裏布|lining|shell)\)\s*[,;:、]?\s*/i,'');
-  s=s.replace(/Iron\s*Shrinkage[^,]*/ig,'').replace(/Shrinkage[^,]*/ig,'');
-  s=s.replace(/^\s*[,;:、]\s*/,'');
-  return s.trim();
+function splitMultiFabric(ft){
+  if(!ft)return null;
+  /* Split by double-newline (distinct fabric sections) */
+  var parts=ft.split(/\n\s*\n/);
+  if(parts.length<2){
+    /* Single section: check if first line has label+RD pattern like "大身RD248739" */
+    var m=ft.match(/^[^\n]{0,15}?RD#?(\d{5,7})/i);
+    if(!m)return null;
+    /* Only one RD found -> single fabric */
+    var allRDs=ft.match(/RD#?\d{5,7}/gi)||[];
+    if(allRDs.length<=1)return null;
+  }
+  var results=[];
+  parts.forEach(function(part){
+    part=part.trim();if(!part)return;
+    var lines=part.split('\n');
+    var first=lines[0].trim();
+    /* Extract label prefix + RD from first line e.g. "大身RD248739" or "TOP RD179941" */
+    var lm=first.match(/^(.{0,15}?)(RD#?)(\d{5,7})/i);
+    var label='',rd='',desc='';
+    if(lm){
+      label=lm[1].trim().replace(/[,，\s]+$/,'');
+      rd=lm[3];
+      desc=first.slice(lm.index+lm[0].length).trim()+' '+lines.slice(1).join(' ').trim();
+    } else {
+      /* RD might be inline without label */
+      var rm=part.match(/RD#?(\d{5,7})/i);
+      rd=rm?rm[1]:'';
+      desc=part.replace(/\n/g,' ');
+    }
+    results.push({ft:desc.trim(),rd:rd,label:label||''});
+  });
+  return results.length>1?results:null;
 }
-function splitByFabricLines(ft){
-  if(!ft)return[];
-  return String(ft).replace(/\r/g,'\n').split(/\n+/).map(function(s){return s.trim();}).filter(function(s){return s&&/(?:RD#?\s*\d{5,7}|\d{5,7}|%|polyester|cotton|nylon|rayon|viscose|linen|wool|spandex|woven|knit|denim|weave|jersey|twill|embroidery)/i.test(s);});
-}
-
 function doMap(){
 var rows=BD._rows;if(!rows||!rows.length){toast('No data','var(--or)');return;}
 var ms=document.getElementById('mS').value,mr=document.getElementById('mR').value,mf=document.getElementById('mF').value;
-/* Helper: split "1.RD#xxx...
-2.RD#yyy..." into multiple rows */
-function splitMultiFabric(style, ft, ca){
-  var segs=ft.split(/\n\s*\d+\.\s*/);
-  segs=segs.map(function(s){return s.replace(/^\d+\.\s*/,'').trim();})
-           .filter(function(s){return s&&/\d{5,}|%|[a-zA-Z]{3,}/.test(s);});
-  if(segs.length<=1)return null; // single fabric, handle normally
-  return segs.map(function(s){return {_style:style,_ft:s,_ca:ca};});
-}
 BD.mapped=rows.map(function(r){
   var style=String(r[ms]||'').trim();
   var ft=String(r[mf]||'').trim();
-  /* 1. Try extracting RD from style name first (most reliable) */
   var styleRdMatch=style.match(/_RD(\d{5,7})/i);
   var cleanStyle=style.replace(/_RD\d+.*/i,'').trim()||style;
-  /* 2. Read BOM RD column - could be full text like "49504, Plain Weave..." */
   var rdRaw=String(r[mr]||'').replace(/^RD#?/i,'').trim();
   var rd='';
   if(styleRdMatch)rd=styleRdMatch[1];
-  else if(rdRaw&&rdRaw.length<=7)rd=rdRaw;  /* pure short RD number */
+  else if(rdRaw&&rdRaw.length<=7)rd=rdRaw;
   else if(rdRaw){var rdFromRaw=rdRaw.match(/^(\d{5,7})(?:[,\s]|$)/);if(rdFromRaw)rd=rdFromRaw[1];}
-  /* 3. Fallback: extract from material text */
   if(!rd&&ft){var m=ft.match(/^(\d{5,7})(?:[,\s]|$)/);if(m)rd=m[1];}
   if(!rd&&ft){var m2=ft.match(/(?:RD#?)(\d{5,7})/i);if(m2)rd=m2[1];}
   if(rd&&rd.length>7)rd='';
   return{st:cleanStyle,ds:'',ca:'',ft:ft,rd:rd,su:'',se:''};
 }).filter(function(r){return !r.skip&&(r.st||r.rd||r.ft);});
 
-/* Expand multi-fabric rows - split on newline; each line may be 表布 / 裡布 / comma based material */
+/* Expand multi-fabric rows */
 var expanded=[];
 BD.mapped.forEach(function(row){
-  var ft=row.ft||'';
-  var segs=splitByFabricLines(ft);
-  if(segs.length<=1){expanded.push(row);return;}
-  segs.forEach(function(s,i){
-    var lab=/表布|面布/.test(s)?'TOP (表布)':/裡布|里布|裏布/.test(s)?'BTM (裡布)':'布料'+(i+1);
-    expanded.push(Object.assign({},row,{ft:s,rd:'',label:lab}));
+  var parts=splitMultiFabric(row.ft);
+  if(!parts){expanded.push(row);return;}
+  parts.forEach(function(p,i){
+    var newRow=Object.assign({},row,{
+      ft:p.ft||'',
+      rd:p.rd||row.rd||'',
+      label:p.label||('布料'+(i+1))
+    });
+    expanded.push(newRow);
   });
 });
 BD.mapped=expanded;
@@ -1086,48 +812,23 @@ return m2?m2[1]:'';
 }
 function splitFabricParts(ft){
 if(!ft)return[];
-var src=String(ft).replace(/\r/g,'\n').replace(/，/g,',');
 var parts=[];
-/* Support: ZT-SZ0040(表布), ...   and   (裡布)Plain Weave, ... */
-var re=/((?:[A-Za-z0-9_-]+)?\s*\((?:表布|面布|裡布|里布|裏布)\)\s*[,;:、]?\s*)/ig;
-var ms=[],m;
-while((m=re.exec(src))!==null){ms.push({idx:m.index,end:re.lastIndex,raw:m[1]});}
-if(ms.length){
-  ms.forEach(function(mm,i){
-    var next=i+1<ms.length?ms[i+1].idx:src.length;
-    var label=/表布|面布/i.test(mm.raw)?'TOP (表布)':'BTM (裡布)';
-    var text=src.substring(mm.end,next).trim();
-    text=cleanFabricForParse(text);
-    if(text)parts.push({label:label,text:text});
-  });
+var topM=ft.match(/\(表布\)([^(]+)/);
+var btmM=ft.match(/\(裡布\)([^(]+)/);
+if(topM||btmM){
+  if(topM)parts.push({label:'TOP (表布)',text:topM[1].trim()});
+  if(btmM)parts.push({label:'BTM (裡布)',text:btmM[1].trim()});
   return parts;
 }
-var topM=src.match(/TOP\s*[:：]\s*([\s\S]*?)(?=\n?\s*BTM\s*[:：]|$)/i);
-var btmM=src.match(/BTM\s*[:：]\s*([\s\S]*)/i);
-if(topM||btmM){
-  if(topM)parts.push({label:'TOP',text:cleanFabricForParse(topM[1])});
-  if(btmM)parts.push({label:'BTM',text:cleanFabricForParse(btmM[1])});
-  return parts.filter(function(p){return p.text;});
+var topM2=ft.match(/TOP\s*:?([^B\n]+)/i);
+var btmM2=ft.match(/BTM\s*:?(.+)/i);
+if(topM2&&btmM2){
+  parts.push({label:'TOP',text:topM2[1].trim()});
+  parts.push({label:'BTM',text:btmM2[1].trim()});
+  return parts;
 }
 return[];
 }
-
-
-function findHistoryExactForBatch(row, ft){
-  hist=(hist||[]).map(normHistRow);
-  var candidates=[];
-  function add(v){var n=normRD(v);if(n&&candidates.indexOf(n)<0)candidates.push(n);}
-  add(row&&row.rd);
-  add(extractSegRD(ft||''));
-  extractRDsFromText(ft||'').forEach(add);
-  if(!candidates.length)return null;
-  return hist.find(function(h){
-    /* Batch Excel should match the original fabric RD exactly only.
-       Do not match style number, description, or substitute RD. */
-    return candidates.indexOf(normRD(h.or))>=0;
-  })||null;
-}
-
 function procRowFabric(row){
 var all=[].concat(FI.knit,FI.woven,FI.denim);
 var ft=row.ft||'';
@@ -1139,11 +840,8 @@ if(parts.length>0){
     var segRD=extractSegRD(p.text)||extractSegRD(ft)||row.rd;
     var f=findRD(segRD);
     if(f){sub.status='actual';sub.match=f;return sub;}
-    var hmExact=findHistoryExactForBatch(sub,p.text);
-    if(hmExact){sub.status='history';sub.hm=hmExact;return sub;}
     if(!p.text){sub.status='skip';return sub;}
-    var parseText=cleanFabricForParse(p.text);
-    var prs=parseFT(parseText);sub.parsedFT=prs;sub.ft=parseText||p.text;
+    var prs=parseFT(p.text);sub.parsedFT=prs;
     sub.recs=getRec(prs).slice(0,30);
     return sub;
   });
@@ -1152,9 +850,9 @@ var single=Object.assign({},row,{label:'',status:'recommend',match:null,hm:null,
 if(!ft&&!row.rd){single.status='skip';return[single];}
 var f2=findRD(row.rd)||findRD(extractSegRD(ft));
 if(f2){single.status='actual';single.match=f2;return[single];}
-var hm=findHistoryExactForBatch(row,ft);
+var hm=hist.find(function(h){return h.or===row.rd||(h.st&&row.st&&h.st===row.st);});
 if(hm){single.status='history';single.hm=hm;return[single];}
-if(ft){var parseText2=cleanFabricForParse(ft);var prs2=parseFT(parseText2);single.parsedFT=prs2;single.ft=parseText2||ft;single.recs=getRec(prs2).slice(0,30);}
+if(ft){var prs2=parseFT(ft);single.parsedFT=prs2;single.recs=getRec(prs2).slice(0,30);}
 return[single];
 }
 function procB(){
@@ -1195,7 +893,7 @@ h+='</tr>';
 if(detail)h+='<tr id="dr'+i+'" class="detail-row" style="display:none"><td colspan="8">'+detail+'</td></tr>';
 });
 h+='</tbody></table>';document.getElementById('bres').innerHTML=h;
-BD.res.forEach(function(r,ri2){if(r.status==='recommend'&&r.recs.length>0){var el=document.getElementById('bsub'+ri2);if(el){if(typeof _actMap!=='undefined')_actMap['bsub'+ri2]={st:r.st||'',ca:r.ca||'',rd:r.rd||'',ft:r.ft||'',label:r.label||'',actualInfo:r.actualInfo||null};regTbl('bsub'+ri2,r.recs,REC_COLS,'bsub'+ri2,true);}}});
+BD.res.forEach(function(r,ri2){if(r.status==='recommend'&&r.recs.length>0){var el=document.getElementById('bsub'+ri2);if(el){_actMap['bsub'+ri2]={st:r.st||'',ca:r.ca||'',rd:r.rd||'',ft:r.ft||'',label:r.label||'',actualInfo:r.actualInfo||null};regTbl('bsub'+ri2,r.recs,REC_COLS,'bsub'+ri2,true);}}});
 var ep='<table class="dt"><thead><tr><th>Style</th><th>Label</th><th>Status</th><th>Actual RD</th><th>Sub RD</th><th>Brand</th><th>Info</th></tr></thead><tbody>';
 BD.res.forEach(function(r){var aR='',sR='',br='',info='';if(r.status==='actual'&&r.match){aR=r.match.rd;br=r.match.brand;info=r.match.sub+', '+r.match.comp+', '+r.match.wt+'g/m2';}else if(r.status==='history'&&r.hm){sR=r.hm.sr;info=r.hm.sd;}else if(r.recs.length>0){sR=r.recs[0].rd;br=r.recs[0].brand;info=r.recs[0].sub+', '+r.recs[0].comp+', '+r.recs[0].wt+'g/m2';}ep+='<tr><td>'+esc(r.st)+'</td><td>'+(r.label||'')+'</td><td>'+r.status+'</td><td>'+aR+'</td><td>'+sR+'</td><td>'+br+'</td><td style="font-size:.82em">'+info+'</td></tr>';});
 ep+='</tbody></table>';document.getElementById('epv').innerHTML=ep;
@@ -1212,27 +910,8 @@ function dlJ(d,fn){var b=new Blob([JSON.stringify(d,null,2)],{type:'application/
 
 /* ═══ GitHub shared data auto-load ═══ */
 function loadSharedFabricData(){
-  return fetch('./fabric-data.json?v=' + Date.now(), {cache:'no-store'})
-    .then(function(res){
-      if(!res.ok) throw new Error('fabric-data.json not found: ' + res.status);
-      return res.json();
-    })
-    .then(function(data){
-      var src = data.fi || data; // supports both {fi:{...}} and {...}
-      FI.knit = Array.isArray(src.knit) ? src.knit : [];
-      FI.woven = Array.isArray(src.woven) ? src.woven : [];
-      FI.denim = Array.isArray(src.denim) ? src.denim : [];
-      save();
-      upSt();
-      if(document.getElementById('fit')) showFI(curFI || 'knit');
-      toast('Shared fabric data loaded: Knit ' + FI.knit.length + ' / Woven ' + FI.woven.length + ' / Denim ' + FI.denim.length);
-      console.log('Shared fabric data loaded', FI);
-    })
-    .catch(function(err){
-      console.error('Shared fabric data load failed:', err);
-      upSt();
-      toast('fabric-data.json load failed. Please check file name/location.', 'var(--rd)');
-    });
+  /* Already handled in init() - skip to avoid double load */
+  return Promise.resolve();
 }
 
 /* ═══ Init ═══ */
