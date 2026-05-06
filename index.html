@@ -606,7 +606,6 @@ var _rdPre=(q.match(/RD#?[0-9]{5,7}/gi)||[]);var rdM=_rdPre.map(function(m){retu
 var act=[];if(rdNums.length>0){var all=[].concat(FI.knit,FI.woven,FI.denim);rdNums.forEach(function(n){act=act.concat(all.filter(function(f){return f.rd.replace(/^0+/,'')===n.replace(/^0+/,'');}));});}
 var ql=q.toLowerCase();var hi=hist.filter(function(h){return(h.st||'').toLowerCase().includes(ql)||(h.or||'').includes(ql.replace(/rd#?/i,''))||(h.sr||'').includes(ql.replace(/rd#?/i,''));});
 var parsed=parseFT(q);var rec=[];
-var rec=[];
 if(act.length===0&&hi.length===0&&(parsed.wt>0||parsed.comp||parsed.sub))rec=getRec(parsed).slice(0,30);
 var h='';
 if(act.length>0){h+='<div class="cd"><h3><span class="bdg ba">Actual</span> '+act.length+'</h3><table class="dt"><thead><tr><th>RD</th><th>Brand</th><th>Subtype</th><th>Name</th><th>Composition</th><th>Weight</th><th></th></tr></thead><tbody>';act.forEach(function(f){var ci=_cmts.length;_cmts.push(genC('a',f));h+='<tr><td><b>'+f.rd+'</b></td><td><span class="bdg bb">'+f.brand+'</span></td><td>'+f.sub+'</td><td>'+f.name+'</td><td style="max-width:250px;font-size:.8em">'+f.comp+'</td><td>'+f.wt+'</td><td><button class="btn bsm bp" onclick="cpC('+ci+')">Copy</button></td></tr>';});h+='</tbody></table></div>';}
