@@ -344,7 +344,7 @@ var GAS_URL='https://script.google.com/macros/s/AKfycbzUsj4zeULW6mKgFDGTqQU_yIMU
 var HIST_LOADING=false;
 var _cmts=[],curFI='knit';
 var _actMap={};
-/* Ambiguous Type */
+/* Ambiguous Type Detection */
 var _pendingSearch=null;
 function checkAmbiguousType(sub){
  if(!sub)return false;var s=sub.toLowerCase();
@@ -357,75 +357,31 @@ function tySelect(ty){
  _pendingSearch.ty=ty;var rec=getRec(_pendingSearch).slice(0,30);var parsed=_pendingSearch;
  var relaxed=rec.some(function(r){return r._relaxedWeight;});
  var xh='<div class="cd"><h3><span class="bdg bo">Recommend</span> '+rec.length+'</h3>';
- if(relaxed)xh+='<div style="background:#fff3cd;border:1px solid #ffc107;padding:8px 12px;border-radius:6px;margin-bottom:8px;font-size:.85em;color:#856404">No candidates within 15% weight. Showing relaxed results.</div>';
- xh+='<div style="font-size:.82em;color:var(--t2);margin-bottom:8px"><b>Parsed:</b> Type=<span class="tg">'+esc(parsed.ty||'?')+'</span> Spandex='+(parsed.hasSp?'Yes':'No')+' Subtype=<span class="tg">'+esc(parsed.sub||'?')+'</span> Weight='+esc(sv(parsed.wt))+'g/m2</div><div id="srRec"></div></div>';
+ if(relaxed)xh+='<div style="background:#fff3cd;border:1px solid #ffc107;padding:8px 12px;border-radius:6px;margin-bottom:8px;font-size:.85em;color:#856404">No candidates within +/-15% weight.</div>';
+ xh+='<div style="font-size:.82em;color:var(--t2);margin-bottom:8px"><b>Parsed:</b> Type=<span class="tg">'+esc(parsed.ty||'?')+'</span> Spandex='+(parsed.hasSp?'Yes':'No')+' Sub=<span class="tg">'+esc(parsed.sub||'?')+'</span> Wt='+esc(sv(parsed.wt))+'g/m2</div><div id="srRec"></div></div>';
  document.getElementById('sr').innerHTML=xh;
  if(rec.length>0){_actMap['srRec']={st:document.getElementById('qi').value.trim(),ca:'',rd:'',ft:document.getElementById('qi').value.trim(),label:'',actualInfo:null};regTbl('srRec',rec,REC_COLS,'srRec',true);}
  _pendingSearch=null;
 }
-/* Finish Groups */
+/* Finish Groups (SOP Appendix B) */
 var CHEM_GROUPS={'A':['normal','','blanks','anti pill','antistatic','biopolished','desized','enzyme','hydrophilic softener','preshrunk','resin','silicone softener','upf'],'B':['durable water repellent','dwr','wicking','quick dry'],'C':['fabric wash'],'D':['foam coated'],'E':['liquid ammonia','wrinkle free','non iron','wrinkle resistant','easy care'],'F':['mercerized'],'G':['pa coating','pu coating','tpu coating'],'H':['sulfur overdyed'],'I':['teflon'],'J':['tough cotton'],'K':['wax coating'],'L':['burnout'],'M':['odor management']};
 var MECH_GROUPS={'A':['','non-mechanical','non-mechanical finishing','both side shear'],'B':['airo'],'C':['aqua sanded'],'D':['boiled'],'E':['both side brushed'],'F':['brushed back','brushed face'],'G':['calendaring'],'H':['carbonized','peach','light peach','carbon peached','diamer peach','sueded','engineered sueded','micro sanded','water sueded'],'I':['ciere'],'J':['compacted'],'K':['crinkled'],'L':['drumming'],'M':['pleasted'],'N':['pressed'],'O':['sandwashed'],'P':['sanforized']};
-function getFinishGroup(value,groupMap){
- if(!value||!String(value).trim())return'A';
- var v=String(value).toLowerCase().trim();
- for(var g in groupMap){for(var i=0;i<groupMap[g].length;i++){var k=groupMap[g][i];if(k&&(v===k||v.indexOf(k)>=0||k.indexOf(v)>=0))return g;}}
- return null;
-}
-function finishScore(srcChem,srcMech,candChem,candMech){
- var sc=0;var srcCB=(!srcChem||!srcChem.trim()||srcChem.toLowerCase().trim()==='normal');
- var srcMB=(!srcMech||!srcMech.trim());
- if(!srcCB){var srcCG=getFinishGroup(srcChem,CHEM_GROUPS),candCG=getFinishGroup(candChem,CHEM_GROUPS);
-  if(srcChem.toLowerCase().trim()===(candChem||'').toLowerCase().trim())sc+=10;
-  else if(srcCG&&candCG&&srcCG===candCG)sc+=7;else if(candCG==='A')sc+=3;else sc-=5;
- }else{if(!candChem||!candChem.trim()||getFinishGroup(candChem,CHEM_GROUPS)==='A')sc+=5;}
- if(!srcMB){var srcMG=getFinishGroup(srcMech,MECH_GROUPS),candMG=getFinishGroup(candMech,MECH_GROUPS);
-  if(srcMech.toLowerCase().trim()===(candMech||'').toLowerCase().trim())sc+=10;
-  else if(srcMG&&candMG&&srcMG===candMG)sc+=7;else if(candMG==='A')sc+=3;else sc-=5;
- }else{if(!candMech||!candMech.trim()||getFinishGroup(candMech,MECH_GROUPS)==='A')sc+=5;}
- return sc;
-}
-function finishGroupBadge(val,type){
- var gm=type==='chem'?CHEM_GROUPS:MECH_GROUPS;var g=getFinishGroup(val,gm);if(!g)return'';
- var p=type==='chem'?'C':'M';
- return' <span class="bdg" style="background:rgba(46,109,168,.12);color:#1a4a7a;font-size:.7em">'+p+g+'</span>';
-}
+function getFinishGroup(value,groupMap){if(!value||!String(value).trim())return'A';var v=String(value).toLowerCase().trim();for(var g in groupMap){for(var i=0;i<groupMap[g].length;i++){var k=groupMap[g][i];if(k&&(v===k||v.indexOf(k)>=0||k.indexOf(v)>=0))return g;}}return null;}
+function finishScore(srcChem,srcMech,candChem,candMech){var sc=0;var srcCB=(!srcChem||!srcChem.trim()||srcChem.toLowerCase().trim()==='normal');var srcMB=(!srcMech||!srcMech.trim());if(!srcCB){var srcCG=getFinishGroup(srcChem,CHEM_GROUPS),candCG=getFinishGroup(candChem,CHEM_GROUPS);if(srcChem.toLowerCase().trim()===(candChem||'').toLowerCase().trim())sc+=10;else if(srcCG&&candCG&&srcCG===candCG)sc+=7;else if(candCG==='A')sc+=3;else sc-=5;}else{if(!candChem||!candChem.trim()||getFinishGroup(candChem,CHEM_GROUPS)==='A')sc+=5;}if(!srcMB){var srcMG=getFinishGroup(srcMech,MECH_GROUPS),candMG=getFinishGroup(candMech,MECH_GROUPS);if(srcMech.toLowerCase().trim()===(candMech||'').toLowerCase().trim())sc+=10;else if(srcMG&&candMG&&srcMG===candMG)sc+=7;else if(candMG==='A')sc+=3;else sc-=5;}else{if(!candMech||!candMech.trim()||getFinishGroup(candMech,MECH_GROUPS)==='A')sc+=5;}return sc;}
+function finishGroupBadge(val,type){var gm=type==='chem'?CHEM_GROUPS:MECH_GROUPS;var g=getFinishGroup(val,gm);if(!g)return'';var p=type==='chem'?'C':'M';return' <span class="bdg" style="background:rgba(46,109,168,.12);color:#1a4a7a;font-size:.7em">'+p+g+'</span>';}
 function selAndHist(ri,rc){
- var r=BD.res[ri];if(!r||!r.recs||!r.recs[rc])return;
- var f=r.recs[rc];r.selIdx=rc;
- document.getElementById('mSt').value=r.st||'';
- document.getElementById('mCa').value=r.ca||'';
- document.getElementById('mSe').value='';
- document.getElementById('mOR').value=r.rd||'';
- document.getElementById('mOD').value=(r.ft||'').substring(0,200);
- document.getElementById('mSR').value=f.rd||'';
- document.getElementById('mSD').value=(f.sub||'')+', '+(f.comp||'')+', '+f.wt+'g/m2';
- document.getElementById('mNo').value='Score:'+f.sc+' Brand:'+f.brand;
- document.getElementById('mS2').value='';
- eIdx=-1;document.getElementById('moT').textContent='Select > Save to History';
- document.getElementById('mo').classList.add('sh');
- window._selData={f:f};
- var cm=genC('s',f);navigator.clipboard.writeText(cm).catch(function(){});
- toast('Comment copied! Fill Season and Save.','var(--bl)');
+ var r=BD.res[ri];if(!r||!r.recs||!r.recs[rc])return;var f=r.recs[rc];r.selIdx=rc;
+ document.getElementById('mSt').value=r.st||'';document.getElementById('mCa').value=r.ca||'';document.getElementById('mSe').value='';
+ document.getElementById('mOR').value=r.rd||'';document.getElementById('mOD').value=(r.ft||'').substring(0,200);
+ document.getElementById('mSR').value=f.rd||'';document.getElementById('mSD').value=(f.sub||'')+', '+(f.comp||'')+', '+f.wt+'g/m2';
+ document.getElementById('mNo').value='Score:'+f.sc+' Brand:'+f.brand;document.getElementById('mS2').value='';
+ eIdx=-1;document.getElementById('moT').textContent='Select > Save to History';document.getElementById('mo').classList.add('sh');
+ window._selData={f:f};var cm=genC('s',f);navigator.clipboard.writeText(cm).catch(function(){});toast('Comment copied! Fill Season and Save.','var(--bl)');
 }
 function addCR(rec){_confRecs.push(rec);try{localStorage.setItem('gcr',JSON.stringify(_confRecs));}catch(e){}renCR();toast('Added to confirmed records');}
 function delCR(i){if(!confirm('Delete?'))return;_confRecs.splice(i,1);try{localStorage.setItem('gcr',JSON.stringify(_confRecs));}catch(e){}renCR();}
 function cpCR(i){var r=_confRecs[i];if(r&&r.comment)navigator.clipboard.writeText(r.comment).then(function(){toast('Copied!');});}
-function renCR(){
- var el=document.getElementById('crTbl');if(!el)return;
- var q=sv((document.getElementById('crQ')||{}).value).toLowerCase();
- var fl=_confRecs;
- if(q)fl=_confRecs.filter(function(r){return[r.style,r.origRD,r.subRD,r.season].some(function(v){return sv(v).toLowerCase().indexOf(q)>=0;});});
- if(!fl.length){el.innerHTML='<div class="emp">No confirmed records yet</div>';return;}
- var xh='<table class="dt"><thead><tr><th>Date</th><th>Season</th><th>Style</th><th>Orig RD</th><th>Sub RD</th><th>Info</th><th>Action</th></tr></thead><tbody>';
- fl.forEach(function(r){var ri=_confRecs.indexOf(r);
-  xh+='<tr><td style="font-size:.8em">'+esc(sv(r.dt))+'</td><td><b>'+esc(sv(r.season))+'</b></td><td><b>'+esc(sv(r.style))+'</b></td>';
-  xh+='<td>'+esc(sv(r.origRD))+'</td><td><b style="color:var(--ac)">'+esc(sv(r.subRD))+'</b></td>';
-  xh+='<td style="font-size:.82em">'+esc(sv(r.subDesc))+'</td>';
-  xh+='<td><div class="bg"><button class="btn bsm bp" onclick="cpCR('+ri+')">Copy</button><button class="btn bsm br" onclick="delCR('+ri+')">Del</button></div></td></tr>';
- });
- xh+='</tbody></table>';el.innerHTML=xh;
-}
+function renCR(){var el=document.getElementById('crTbl');if(!el)return;var q=sv((document.getElementById('crQ')||{}).value).toLowerCase();var fl=_confRecs;if(q)fl=_confRecs.filter(function(r){return[r.style,r.origRD,r.subRD,r.season].some(function(v){return sv(v).toLowerCase().indexOf(q)>=0;});});if(!fl.length){el.innerHTML='<div class="emp">No confirmed records</div>';return;}var xh='<table class="dt"><thead><tr><th>Date</th><th>Season</th><th>Style</th><th>Orig RD</th><th>Sub RD</th><th>Info</th><th>Action</th></tr></thead><tbody>';fl.forEach(function(r){var ri=_confRecs.indexOf(r);xh+='<tr><td style="font-size:.8em">'+esc(sv(r.dt))+'</td><td><b>'+esc(sv(r.season))+'</b></td><td><b>'+esc(sv(r.style))+'</b></td><td>'+esc(sv(r.origRD))+'</td><td><b style="color:var(--ac)">'+esc(sv(r.subRD))+'</b></td><td style="font-size:.82em">'+esc(sv(r.subDesc))+'</td><td><div class="bg"><button class="btn bsm bp" onclick="cpCR('+ri+')">Copy</button><button class="btn bsm br" onclick="delCR('+ri+')">Del</button></div></td></tr>';});xh+='</tbody></table>';el.innerHTML=xh;}
 
 /* ═══ Filter/Sort Table System ═══ */
 window.onerror=function(msg,src,line,col,err){try{toast('JS Error: '+msg,'var(--rd)');console.error(err||msg);}catch(e){};};
@@ -467,7 +423,11 @@ else if(c.key==='chemFin')h+='<td style="font-size:.78em">'+esc(r.chemFin||'')+(
 else if(c.key==='mechFin')h+='<td style="font-size:.78em">'+esc(r.mechFin||'')+(r.mechFin?finishGroupBadge(r.mechFin,'mech'):'')+'</td>';
 else h+='<td>'+(r[c.key]||'')+'</td>';
 });
-if(T.onAction){h+='<td><div class="bg"><button class="btn bsm bp" onclick="cpC('+ci+')">Copy</button><button class="btn bsm bs" onclick="addHist('+ci+',\''+ctx+'\','+i+')" title="Add to history">+</button></div></td>';}
+if(T.onAction){
+var selBtn='';
+if(ctx&&ctx.indexOf('bsub')===0){var bri=parseInt(ctx.substring(4));var rj=i;var isSel=(BD&&BD.res&&BD.res[bri]&&BD.res[bri].selIdx===rj);
+selBtn='<button class="btn bsm" style="background:'+(isSel?'var(--gn)':'#e67e22')+';color:#fff" onclick="event.stopPropagation();selAndHist('+bri+','+rj+')">'+(isSel?'Selected':'Select')+'</button>';}
+h+='<td><div class="bg">'+selBtn+'<button class="btn bsm bp" onclick="cpC('+ci+')">Copy</button><button class="btn bsm bs" onclick="addHist('+ci+',\''+ctx+'\','+i+')" title="Add to history">+</button></div></td>';}
 h+='</tr>';
 });
 h+='</tbody></table>';
@@ -537,7 +497,7 @@ var REC_COLS=[
 {key:'idx',label:'#',type:'num'},{key:'rd',label:'RD',type:'text'},{key:'brand',label:'Brand',type:'text'},
 {key:'ty',label:'Type',type:'text'},{key:'sub',label:'Subtype',type:'text'},{key:'comp',label:'Composition',type:'text'},
 {key:'wt',label:'Weight',type:'num'},{key:'sc',label:'Score',type:'num'},
-{key:'chemFin',label:'Chem Finish',type:'text'},{key:'mechFin',label:'Mech Finish',type:'text'}
+{key:'chemFin',label:'Chem Fin',type:'text'},{key:'mechFin',label:'Mech Fin',type:'text'}
 ];
 
 /* ═══ Composition Parser & Scorer ═══ */
@@ -790,7 +750,7 @@ ty=typeFromSubtype(sub,ft);
 /* If subtype cannot decide type, then use explicit type words / weave keywords. */
 if(!ty){
   if(/\(Knit\)|,\s*knit\b|(?<!\w)jersey(?!\s*weave)|\binterlock\b|\brib\b|\bfleece\b|\bpique\b|\bterry\b|\bfrench\s*terry\b|\bsweatshirt\b|\bponti\b|\bponte\b|\bvelour\b/i.test(ft))ty='Knit';
-  else if(/\(Woven\)|,\s*woven\b|\bwoven\b|plain[\s\-]weave|\bplain\b(?!\s*jersey)|twill\b|poplin\b|seersucker\b|oxford\s*cloth|broadcloth|\bcanvas\b|\bchiffon\b|\bvoile\b|\bdobby\b|\bjacquard\b(?!\s*knit)|\bcrepe\b|\bgauze\b|\blawn\b|\bsateen\b|\bvelvet\b|\bcorduroy\b|\bflannel\b|\bchambray\b|\bsatin\b|\btaffeta\b|\bgeorgette\b|\borganza\b|\bripstop\b|\bherringbone\b|\bmuslin\b|\bcharmeuse\b|\bhabutai\b/i.test(ft))ty='Woven';
+  else if(/\(Woven\)|,\s*woven\b|\bwoven\b|plain[\s\-]weave|\bplain\b(?!\s*jersey)|twill\b|poplin\b|seersucker\b|oxford\s*cloth|broadcloth|\bcanvas\b|\bchiffon\b|\bvoile\b|\bdobby\b|\bcrepe\b|\bgauze\b|\blawn\b|\bsateen\b|\bvelvet\b|\bcorduroy\b|\bflannel\b|\bchambray\b|\bsatin\b|\btaffeta\b|\bgeorgette\b|\borganza\b|\bripstop\b|\bherringbone\b|\bmuslin\b|\bcharmeuse\b|\bhabutai\b/i.test(ft))ty='Woven';
   else if(/denim/i.test(ft))ty='Denim';
 }
 var wt=extractWeight(ft);
@@ -1020,7 +980,7 @@ else if(hi.length>0){
 else if(rec.length>0){
   var relaxedW=rec.some(function(r){return r._relaxedWeight;});
  h+='<div class="cd"><h3><span class="bdg bo">Recommend</span> '+rec.length+'</h3>';
- if(relaxedW)h+='<div style="background:#fff3cd;border:1px solid #ffc107;padding:8px 12px;border-radius:6px;margin-bottom:8px;font-size:.85em;color:#856404">No candidates within 15% weight. Showing relaxed results.</div>';
+ if(relaxedW)h+='<div style="background:#fff3cd;border:1px solid #ffc107;padding:8px 12px;border-radius:6px;margin-bottom:8px;font-size:.85em;color:#856404">No candidates within +/-15% weight.</div>';
  h+='<div style="font-size:.82em;color:var(--t2);margin-bottom:8px">RD was not found in Fabric Index or History, so the system recommends by parsed fabric text.<br><b>Parsed:</b> Type=<span class="tg">'+esc(parsed.ty||'?')+'</span> Spandex='+(parsed.hasSp?'Yes':'No')+' Subtype=<span class="tg">'+esc(parsed.sub||'?')+'</span> Weight='+esc(sv(parsed.wt))+'g/m2</div><div id="srRec"></div></div>';
 }
 else{
