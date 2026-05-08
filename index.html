@@ -186,9 +186,9 @@ focus{background:rgba(61,140,94,.1);box-shadow:0 0 0 2px var(--ac)}
 <div class="cd"><h3>Fabric Index Upload</h3>
 <p style="font-size:.85em;color:var(--t2);margin-bottom:12px">Upload GAP INC Fabric Index Excel</p>
 <p style="font-size:.78em;color:var(--t2);margin-top:4px">Excel should include <b>Chemical Finish</b> and <b>Mechanical Finish</b> columns.</p>
-</div><div class="cd" style="margin-top:12px"><h3>📂 公檔 Fabric Library</h3>
+<div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--bd)"><h3>📂 公檔 Fabric Library</h3>
 <p style="font-size:.85em;color:var(--t2)">載入 local_lib.json 或放 GitHub 同目錄自動載入</p>
-<div style="display:flex;gap:8px;align-items:center;margin:8px 0"><input type="file" id="llFile" accept=".json" onchange="loadLL(this)" style="font-size:.85em"> <span id="llSt" style="font-size:.82em;color:var(--t2)"></span></div>
+<div style="display:flex;gap:8px;align-items:center;margin:8px 0"><input type="file" id="llFile" accept=".json" onchange="loadLL(this)" style="font-size:.85em"> <span id="llSt" style="font-size:.82em;color:var(--t2)"></span></div></div>
 <div class="fr">
 <div class="fg"><label>Knit</label><input type="file" id="fK" accept=".xlsx,.xls"><button class="btn bsm bp" style="margin-top:4px" onclick="ldFI('knit')">Load</button></div>
 <div class="fg"><label>Woven</label><input type="file" id="fW" accept=".xlsx,.xls"><button class="btn bsm bp" style="margin-top:4px" onclick="ldFI('woven')">Load</button></div>
@@ -427,17 +427,15 @@ function renCR(){
  if(!fl.length){el.innerHTML='<div class="emp">'+(q?'找不到':'還沒有確認紀錄')+'</div>';return;}
  var xh='';
  fl.forEach(function(r){var ri=_confRecs.indexOf(r);
-  var isAct=!r.subRD||r.subRD===r.origRD;
-  var bdg=isAct?'<span class="bdg ba">Actual</span>':'<span class="bdg bo">Substitute</span>';
   xh+='<div class="cd" style="margin-bottom:10px;padding:14px">';
   xh+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">';
-  xh+='<div><b style="font-size:1.05em">'+esc(sv(r.style))+'</b> '+bdg+'</div>';
+  xh+='<div><b style="font-size:1.05em">'+esc(sv(r.style))+'</b></div>';
   xh+='<div class="bg"><button class="btn bsm bp" onclick="cpCR('+ri+')">Copy Comment</button> <button class="btn bsm br" onclick="delCR('+ri+')">Del</button></div>';
   xh+='</div>';
-  xh+='<div style="display:flex;gap:16px;font-size:.88em;margin-bottom:6px">';
-  xh+='<div><span style="color:var(--t2)">Orig RD:</span> <b>'+esc(sv(r.origRD))+'</b></div>';
-  if(!isAct)xh+='<div><span style="color:var(--t2)">Sub RD:</span> <b style="color:var(--ac)">'+esc(sv(r.subRD))+'</b></div>';
-  if(r.subDesc)xh+='<div>'+esc(sv(r.subDesc))+'</div>';
+  xh+='<div style="font-size:.88em;margin-bottom:6px">';
+  xh+='<span style="color:var(--t2)">Orig RD:</span> <b>'+esc(sv(r.origRD))+'</b>';
+  if(r.subRD&&r.subRD!==r.origRD)xh+=' &rarr; <span style="color:var(--t2)">Sub RD:</span> <b style="color:var(--ac)">'+esc(sv(r.subRD))+'</b>';
+  if(r.subDesc)xh+=' | '+esc(sv(r.subDesc));
   xh+='</div>';
   xh+='<div style="background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:10px 12px;font-size:.82em;font-family:monospace;white-space:pre-wrap;color:var(--tx);max-height:150px;overflow-y:auto">'+esc(sv(r.comment))+'</div>';
   xh+='</div>';
@@ -485,7 +483,7 @@ else if(c.key==='chemFin')h+='<td style="font-size:.78em">'+esc(r.chemFin||'')+(
 else if(c.key==='mechFin')h+='<td style="font-size:.78em">'+esc(r.mechFin||'')+(r.mechFin?finishGroupBadge(r.mechFin,'mech'):'')+'</td>';
 else h+='<td>'+(r[c.key]||'')+'</td>';
 });
-if(T.onAction){h+='<td><div class="bg"><button class="btn bsm bp" onclick="cpC('+ci+')">Copy</button><button class="btn bsm bs" onclick="addHist('+ci+',\''+ctx+'\','+i+')" title="Add to history">+</button></div></td>';}
+if(T.onAction){var _bm=ctx.indexOf('bsub')===0;var _ri2=_bm?parseInt(ctx.replace('bsub','')):0;h+='<td><div class="bg">'+(_bm?'<button class="btn bsm" style="background:var(--gn);color:#fff" onclick="selAndHist('+_ri2+','+i+')">Select</button>':'')+'<button class="btn bsm bp" onclick="cpC('+ci+')">Copy</button><button class="btn bsm bs" onclick="addHist('+ci+',\''+ctx+'\','+i+')" title="Add to history">+</button></div></td>';}
 h+='</tr>';
 });
 h+='</tbody></table>';
