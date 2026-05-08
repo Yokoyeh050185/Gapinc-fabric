@@ -177,15 +177,19 @@ focus{background:rgba(61,140,94,.1);box-shadow:0 0 0 2px var(--ac)}
 <div style="margin-top:12px"><button class="btn bs" onclick="gStp(2)">&#x2B05; Back</button></div>
 </div></div>
 <div class="tp" id="p3">
-<div class="cd"><h3>📋 查詢紀錄（組員複製 Comment）</h3>
-<p style="font-size:.82em;color:var(--t2);margin-bottom:12px">輸入款號或 RD → 顯示主布 Comment。配布請用「單筆查詢」。</p>
-<input style="width:100%;padding:10px 14px;margin-bottom:12px;border-radius:8px;background:var(--bg);border:1px solid var(--bd);color:var(--tx);font-size:.95em" id="crQ" placeholder="輸入款號或 RD..." oninput="renCR()">
-<div id="crTbl"></div>
+<div class="cd"><h3>查詢紀錄 (Confirmed Records)</h3>
+<p style="font-size:.82em;color:var(--t2);margin-bottom:12px">Excel查詢 Select確認後的結果。組員輸入款號即可搜尋。</p>
+<input style="width:100%;padding:10px 14px;margin-bottom:12px;border-radius:8px;background:var(--bg);border:1px solid var(--bd);color:var(--tx);font-size:.95em" id="crQ" placeholder="Search Style# / RD..." oninput="renCR()">
+<div class="stbl" id="crTbl"></div>
 </div></div>
 <div class="tp" id="p2">
 <div class="cd"><h3>Fabric Index Upload</h3>
 <p style="font-size:.85em;color:var(--t2);margin-bottom:12px">Upload GAP INC Fabric Index Excel</p>
 <p style="font-size:.78em;color:var(--t2);margin-top:4px">Excel should include <b>Chemical Finish</b> and <b>Mechanical Finish</b> columns.</p>
+</div><div class="cd" style="margin-top:12px"><h3>📂 公檔 Fabric Library</h3>
+<p style="font-size:.85em;color:var(--t2)">載入 local_lib.json，查詢 Actual 時會比對公檔</p>
+<div style="display:flex;gap:8px;align-items:center;margin:8px 0"><input type="file" id="llFile" accept=".json" onchange="loadLL(this)" style="font-size:.85em"> <span id="llSt" style="font-size:.82em;color:var(--t2)"></span></div>
+<p style="font-size:.78em;color:var(--t2)">ℹ️ 雙擊 scan_library.bat 產生，或放 GitHub 自動載入</p>
 <div class="fr">
 <div class="fg"><label>Knit</label><input type="file" id="fK" accept=".xlsx,.xls"><button class="btn bsm bp" style="margin-top:4px" onclick="ldFI('knit')">Load</button></div>
 <div class="fg"><label>Woven</label><input type="file" id="fW" accept=".xlsx,.xls"><button class="btn bsm bp" style="margin-top:4px" onclick="ldFI('woven')">Load</button></div>
@@ -271,6 +275,9 @@ RD{actual_rd} {actual_name}, {actual_comp}, {actual_weight}
 <script>
 var FI={knit:[],woven:[],denim:[]},hist=[],BD={mapped:[],res:[],wb:null,sn:[],_rows:null,_flt:'all'},eIdx=-1;
 var _confRecs=[];
+var _localLib=[];
+function isInLocalLib(rd){if(!rd||!_localLib.length)return false;var n=String(rd).replace(/\D/g,'');return _localLib.indexOf(n)>=0;}
+function loadLL(inp){if(!inp.files||!inp.files[0])return;var r2=new FileReader();r2.onload=function(e){try{var j=JSON.parse(e.target.result);if(j.rds){_localLib=j.rds;document.getElementById('llSt').textContent='✅ '+_localLib.length+' RDs ('+sv(j.updated||'')+')';toast('公檔: '+_localLib.length+' RDs','var(--gn)');try{localStorage.setItem('_ll',e.target.result);}catch(x){}}}catch(x){toast('Error','red');}};r2.readAsText(inp.files[0]);}
 
 /* ── Shared History: load from Google Sheets ── */
 function normHistRow(row){
@@ -404,14 +411,11 @@ function selAndHist(ri,rc){
  document.getElementById('mS2').value='';
  eIdx=-1;document.getElementById('moT').textContent='Select > Save to History';
  document.getElementById('mo').classList.add('sh');
- /* Auto-propagate same Orig RD */
- var oRD=r.rd;if(oRD&&BD&&BD.res){var ch=0;BD.res.forEach(function(o,oi){if(oi===ri)return;if(o.rd===oRD&&o.status==='recommend'){o.status='history';o.hm={or:oRD,sr:f.rd,sd:(f.sub||'')+', '+(f.comp||'')+', '+f.wt+'g/m2',se:'',s2:'',st:o.st||r.st||''};o.recs=[];ch++;}});if(ch>0){try{renBR(BD._flt||'all');}catch(e){}toast(ch+' rows same RD auto History','var(--bl)');}}
- window._selData={f:f,label:r.label||''};
- var actInfo={rd:r.rd||'',name:'',comp:'',wt:''};
- var cm=genC('s',f,actInfo);navigator.clipboard.writeText(cm).catch(function(){});
+ window._selData={f:f};
+ var cm=genC('s',f);navigator.clipboard.writeText(cm).catch(function(){});
  toast('Comment copied! Fill Season and Save.','var(--bl)');
 }
-function addCR(rec){var lb=sv(rec.label).toLowerCase();if(lb&&(lb.indexOf('btm')>=0||lb.indexOf('裡布')>=0||/布料[2-9]/.test(rec.label||'')))return;if(_confRecs.some(function(x){return x.style===rec.style&&x.origRD===rec.origRD&&x.subRD===rec.subRD;}))return;_confRecs.push(rec);try{localStorage.setItem('gcr',JSON.stringify(_confRecs));}catch(e){}renCR();toast('Added to confirmed records');}
+function addCR(rec){_confRecs.push(rec);try{localStorage.setItem('gcr',JSON.stringify(_confRecs));}catch(e){}renCR();toast('Added to confirmed records');}
 function delCR(i){if(!confirm('Delete?'))return;_confRecs.splice(i,1);try{localStorage.setItem('gcr',JSON.stringify(_confRecs));}catch(e){}renCR();}
 function cpCR(i){var r=_confRecs[i];if(r&&r.comment)navigator.clipboard.writeText(r.comment).then(function(){toast('Copied!');});}
 function renCR(){
@@ -419,25 +423,15 @@ function renCR(){
  var q=sv((document.getElementById('crQ')||{}).value).toLowerCase();
  var fl=_confRecs;
  if(q)fl=_confRecs.filter(function(r){return[r.style,r.origRD,r.subRD,r.season].some(function(v){return sv(v).toLowerCase().indexOf(q)>=0;});});
- if(!fl.length){el.innerHTML='<div class="emp">'+(q?'找不到符合的紀錄':'還沒有確認紀錄')+'</div>';return;}
- var xh='';
+ if(!fl.length){el.innerHTML='<div class="emp">No confirmed records yet</div>';return;}
+ var xh='<table class="dt"><thead><tr><th>Date</th><th>Season</th><th>Style</th><th>Orig RD</th><th>Sub RD</th><th>Info</th><th>Action</th></tr></thead><tbody>';
  fl.forEach(function(r){var ri=_confRecs.indexOf(r);
-  var isAct=!r.subRD||r.subRD===r.origRD;
-  var bdg=isAct?'<span class="bdg ba">Actual</span>':'<span class="bdg bo">Substitute</span>';
-  xh+='<div class="cd" style="margin-bottom:10px;padding:14px">';
-  xh+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">';
-  xh+='<div><b style="font-size:1.05em">'+esc(sv(r.style))+'</b> <span style="font-size:.82em;color:var(--t2)">'+esc(sv(r.season))+'</span> '+bdg+'</div>';
-  xh+='<div class="bg"><button class="btn bsm bp" onclick="cpCR('+ri+')">Copy Comment</button> <button class="btn bsm br" onclick="delCR('+ri+')">Del</button></div>';
-  xh+='</div>';
-  xh+='<div style="display:flex;gap:16px;font-size:.88em;margin-bottom:6px">';
-  xh+='<div><span style="color:var(--t2)">Orig RD:</span> <b>'+esc(sv(r.origRD))+'</b></div>';
-  if(!isAct)xh+='<div><span style="color:var(--t2)">Sub RD:</span> <b style="color:var(--ac)">'+esc(sv(r.subRD))+'</b></div>';
-  if(r.subDesc)xh+='<div style="font-size:.82em;color:var(--t2)">'+esc(sv(r.subDesc))+'</div>';
-  xh+='</div>';
-  xh+='<div style="background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:10px 12px;font-size:.82em;font-family:monospace;white-space:pre-wrap;color:var(--tx);max-height:150px;overflow-y:auto">'+esc(sv(r.comment))+'</div>';
-  xh+='</div>';
+  xh+='<tr><td style="font-size:.8em">'+esc(sv(r.dt))+'</td><td><b>'+esc(sv(r.season))+'</b></td><td><b>'+esc(sv(r.style))+'</b></td>';
+  xh+='<td>'+esc(sv(r.origRD))+'</td><td><b style="color:var(--ac)">'+esc(sv(r.subRD))+'</b></td>';
+  xh+='<td style="font-size:.82em">'+esc(sv(r.subDesc))+'</td>';
+  xh+='<td><div class="bg"><button class="btn bsm bp" onclick="cpCR('+ri+')">Copy</button><button class="btn bsm br" onclick="delCR('+ri+')">Del</button></div></td></tr>';
  });
- el.innerHTML=xh;
+ xh+='</tbody></table>';el.innerHTML=xh;
 }
 
 /* ═══ Filter/Sort Table System ═══ */
@@ -852,6 +846,7 @@ toast('Comment copied with Actual info! Fill Season to save.','var(--bl)');
 
 function init(){
 try{var cr=localStorage.getItem('gcr');if(cr)_confRecs=JSON.parse(cr);}catch(e){}
+try{fetch('local_lib.json').then(function(r){return r.json();}).then(function(j){if(j.rds){_localLib=j.rds;var s2=document.getElementById('llSt');if(s2)s2.textContent='✅ '+_localLib.length+' RDs ('+sv(j.updated||'')+')';}}).catch(function(){try{var ll=localStorage.getItem('_ll');if(ll){var lj=JSON.parse(ll);if(lj.rds){_localLib=lj.rds;var s2=document.getElementById('llSt');if(s2)s2.textContent='✅ '+_localLib.length+' RDs (cache)';}}}catch(x){}});}catch(e){}
 
 /* 1. Load fabric-data.json from same folder (GitHub Pages) */
 fetch('fabric-data.json')
@@ -1074,7 +1069,7 @@ if(!GAS_URL){
   /* fallback: localStorage only */
   if(eIdx>=0)hist[eIdx]=r;else hist.push(r);
   save();upSt();renH();hiMo();toast('已儲存 (本機)');
-  if(window._selData){addCR({style:r.st,season:r.se,origRD:r.or,subRD:r.sr,subDesc:r.sd,comment:genC('s',window._selData.f,{rd:r.or||'',name:'',comp:'',wt:''}),dt:r.dt,label:window._selData.label||''});window._selData=null;}
+  if(window._selData){addCR({style:r.st,season:r.se,origRD:r.or,subRD:r.sr,subDesc:r.sd,comment:genC('s',window._selData.f),dt:r.dt});window._selData=null;}
   return;
 }
 var btn=document.querySelector('#mo .bp');if(btn){btn.disabled=true;btn.textContent='儲存中...';}
@@ -1087,7 +1082,7 @@ postHist(method,r,saveId)
       else{r.id=d.id;hist.push(r);}
       save();upSt();renH();hiMo();
       toast('✓ 已同步到共用 History','var(--gn)');
-  if(window._selData){addCR({style:r.st,season:r.se,origRD:r.or,subRD:r.sr,subDesc:r.sd,comment:genC('s',window._selData.f,{rd:r.or||'',name:'',comp:'',wt:''}),dt:r.dt,label:window._selData.label||''});window._selData=null;}
+  if(window._selData){addCR({style:r.st,season:r.se,origRD:r.or,subRD:r.sr,subDesc:r.sd,comment:genC('s',window._selData.f),dt:r.dt});window._selData=null;}
     } else {
       toast('儲存失敗: '+(d.error||'unknown'),'var(--rd)');
     }
@@ -1097,7 +1092,7 @@ postHist(method,r,saveId)
     if(eIdx>=0)hist[eIdx]=r;else hist.push(r);
     save();renH();hiMo();
     toast('已儲存 (離線)','var(--or)');
-  if(window._selData){addCR({style:r.st,season:r.se,origRD:r.or,subRD:r.sr,subDesc:r.sd,comment:genC('s',window._selData.f,{rd:r.or||'',name:'',comp:'',wt:''}),dt:r.dt,label:window._selData.label||''});window._selData=null;}
+  if(window._selData){addCR({style:r.st,season:r.se,origRD:r.or,subRD:r.sr,subDesc:r.sd,comment:genC('s',window._selData.f),dt:r.dt});window._selData=null;}
   })
   .finally(function(){
     if(btn){btn.disabled=false;btn.textContent='Save';}
@@ -1271,6 +1266,7 @@ if(parts.length>0){
     var segRD=extractSegRD(p.text)||extractSegRD(ft)||row.rd;
     var f=findRD(segRD);
     if(f){sub.status='actual';sub.match=f;return sub;}
+    if(isInLocalLib(segRD)){sub.status='actual';sub.match={rd:segRD,name:'',sub:'',comp:'',wt:'',brand:'',hasSp:false,ty:'',chemFin:'',mechFin:'',_localLib:true};return sub;}
     var hmExact=findHistoryExactForBatch(sub,p.text);
     if(hmExact){sub.status='history';sub.hm=hmExact;return sub;}
     if(!p.text){sub.status='skip';return sub;}
@@ -1284,6 +1280,7 @@ var single=Object.assign({},row,{label:'',status:'recommend',match:null,hm:null,
 if(!ft&&!row.rd){single.status='skip';return[single];}
 var f2=findRD(row.rd)||findRD(extractSegRD(ft));
 if(f2){single.status='actual';single.match=f2;return[single];}
+if(isInLocalLib(row.rd)||isInLocalLib(extractSegRD(ft))){single.status='actual';single.match={rd:row.rd||extractSegRD(ft)||'',name:'',sub:'',comp:'',wt:'',brand:'',hasSp:false,ty:'',chemFin:'',mechFin:'',_localLib:true};return[single];}
 var hm=findHistoryExactForBatch(row,ft);
 if(hm){single.status='history';single.hm=hm;return[single];}
 if(ft){var parseText2=cleanFabricForParse(ft);var prs2=parseFT(parseText2);single.parsedFT=prs2;single.ft=parseText2||ft;single.recs=getRec(prs2).slice(0,30);}
@@ -1312,7 +1309,7 @@ items.forEach(function(r,i){
 var ri=BD.res.indexOf(r);var bg=r.status==='actual'?'ba':r.status==='history'?'bh':'bo';
 var sl=r.status==='actual'?'Actual':r.status==='history'?'History Sub':'Need Rec';
 var rt='',cm='',detail='';
-if(r.status==='actual'&&r.match){var f=r.match;rt='<b style="color:var(--gn);font-size:1.05em">✓ ACTUAL: RD'+f.rd+'</b> <span style="font-size:.9em">'+f.sub+' | '+(f.comp||'').substring(0,50)+' | '+f.wt+'g/m2</span>';cm=genC('a',f);detail='<div><b>Brand:</b> '+f.brand+' | <b>Type:</b> '+f.ty+' | <b>Subtype:</b> '+f.sub+'</div><div><b>Composition:</b> '+f.comp+'</div><div><b>Weight:</b> '+f.wt+' g/m2</div>';}
+if(r.status==='actual'&&r.match){var f=r.match;if(f._localLib)rt='<b style="color:var(--gn);font-size:1.05em">✅ 公檔有此布 (RD'+esc(sv(f.rd))+')</b><div style="font-size:.82em;color:var(--t2);margin-top:4px">FI 無此布，但公檔有 .ZFAB，3D 可用。Comment 寫有正確布</div>';else rt='<b style="color:var(--gn);font-size:1.05em">✓ ACTUAL: RD'+f.rd+'</b> <span style="font-size:.9em">'+f.sub+' | '+(f.comp||'').substring(0,50)+' | '+f.wt+'g/m2</span>';cm=genC('a',f);detail='<div><b>Brand:</b> '+f.brand+' | <b>Type:</b> '+f.ty+' | <b>Subtype:</b> '+f.sub+'</div><div><b>Composition:</b> '+f.comp+'</div><div><b>Weight:</b> '+f.wt+' g/m2</div>';}
 else if(r.status==='history'&&r.hm){var hm=r.hm;rt='Sub RD: <b>'+hm.sr+'</b>'+(hm.s2?' / '+hm.s2:'')+' | '+hm.sd;cm=genC('s',{rd:hm.sr,name:hm.sd,comp:hm.sd,wt:'',sub:''});detail='<div><b>Original:</b> '+hm.or+' | <b>Season:</b> '+hm.se+'</div><div>'+hm.sd+'</div>';}
 else if(r.recs.length>0){var top=r.recs[0];rt='<b style="color:var(--or)">'+r.recs.length+' candidates</b> (Top: RD'+top.rd+', '+top.sub+', '+top.wt+'g/m2, Score:'+top.sc+') <span style="font-size:.8em;color:var(--t2)">click to expand</span>';cm=genC('s',top,r.actualInfo||null);var parsed=parseFT(r.ft||'');detail='<div style="margin-bottom:8px;font-size:.85em;color:var(--t2)"><b>Source:</b> '+esc((r.ft||'').substring(0,300))+'</div>';detail+='<div style="margin-bottom:8px;font-size:.82em"><b>Parsed:</b> Type=<span class="tg">'+(parsed.ty||'?')+'</span> Spandex='+(parsed.hasSp?'Yes':'No')+' Subtype=<span class="tg">'+(parsed.sub||'?')+'</span> Weight='+parsed.wt+'g/m2</div>';detail+='<div id="bsub'+ri+'"></div>';}
 else rt='<span style="color:var(--rd)">No match</span>';
@@ -1335,7 +1332,7 @@ ep+='</tbody></table>';document.getElementById('epv').innerHTML=ep;
 
 /* ═══ Export ═══ */
 function exB(){var rows=BD.res.map(function(r){var j=r.status==='actual'?'Actual':r.status==='history'?'Historical Sub':'Recommended Sub';var aR='',sR='',br='',cm='',fi='';if(r.status==='actual'&&r.match){aR=r.match.rd;br=r.match.brand;cm=genC('a',r.match);fi=r.match.sub+', '+r.match.comp+', '+r.match.wt+'g/m2';}else if(r.status==='history'&&r.hm){sR=r.hm.sr;cm=genC('s',{rd:r.hm.sr,name:r.hm.sd,comp:'',wt:'',sub:''});fi=r.hm.sd;}else if(r.recs.length>0){var t=r.recs[0];sR=t.rd;br=t.brand;cm=genC('s',t);fi=t.sub+', '+t.comp+', '+t.wt+'g/m2';}return{Style:r.st,Category:r.ca,Season:r.se,Result:j,ActualRD:aR,SubRD:sR,Brand:br,Info:fi,Comment:cm};});var ws=XLSX.utils.json_to_sheet(rows);var wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Results');XLSX.writeFile(wb,'FDT_Results_'+new Date().toISOString().split('T')[0]+'.xlsx');toast('Exported!');}
-function cpAll(){var cmts=BD.res.filter(function(r){var lb=sv(r.label||'').toLowerCase();return !lb||(lb.indexOf('btm')<0&&lb.indexOf('裡布')<0&&!/布料[2-9]/.test(r.label||''));}).map(function(r){var cm='';if(r.status==='actual'&&r.match)cm=genC('a',r.match);else if(r.status==='history'&&r.hm)cm=genC('s',{rd:r.hm.sr,name:r.hm.sd,comp:'',wt:'',sub:''});else if(r.recs.length>0)cm=genC('s',r.recs[0]);return r.st+': '+cm;}).join('\n\n');navigator.clipboard.writeText(cmts).then(function(){toast('All copied!');});}
+function cpAll(){var cmts=BD.res.map(function(r){var cm='';if(r.status==='actual'&&r.match){if(r.match._localLib)cm='1.3DFabric:\n*ACTUAL fabric used (公檔)\nRD'+sv(r.match.rd);else cm=genC('a',r.match);}else if(r.status==='history'&&r.hm)cm=genC('s',{rd:r.hm.sr,name:r.hm.sd,comp:'',wt:'',sub:''});else if(r.recs.length>0)cm=genC('s',r.recs[0]);return r.st+': '+cm;}).join('\n\n');navigator.clipboard.writeText(cmts).then(function(){toast('All copied!');});}
 
 /* ═══ Data Sync ═══ */
 function exAll(){dlJ({fi:FI,hist:hist,tpl:{a:document.getElementById('tA').value,s:document.getElementById('tS').value},dt:new Date().toISOString()},'GIS_FDT_All_'+new Date().toISOString().split('T')[0]+'.json');}
