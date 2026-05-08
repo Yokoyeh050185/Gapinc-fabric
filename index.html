@@ -104,7 +104,7 @@ focus{background:rgba(61,140,94,.1);box-shadow:0 0 0 2px var(--ac)}
 <span>Knit:<b id="sK">0</b></span><span>Woven:<b id="sW">0</b></span><span>Denim:<b id="sD">0</b></span><span>History:<b id="sH">0</b></span>
 </div></div>
 <div class="mt" id="mtabs">
-<button class="a" onclick="sw(0)">單筆查詢</button><button onclick="sw(1)">Excel查詢</button><button onclick="sw(2)">Settings</button><button onclick="sw(3)">查詢紀錄</button>
+<button class="a" onclick="sw(0)">單筆查詢</button><button onclick="sw(1)">Excel查詢</button><button onclick="sw(2)">查詢紀錄</button><button onclick="sw(3)">Settings</button>
 </div>
 <div class="ct">
 <div class="tp a" id="p0">
@@ -410,6 +410,7 @@ function selAndHist(ri,rc){
  document.getElementById('mS2').value='';
  eIdx=-1;document.getElementById('moT').textContent='Select > Save to History';
  document.getElementById('mo').classList.add('sh');
+ selRec(ri,rc);
  var oRD=r.rd;if(oRD&&BD&&BD.res){BD.res.forEach(function(o,oi){if(oi===ri)return;if(o.rd===oRD&&o.status==='recommend'){o.status='history';o.hm={or:oRD,sr:f.rd,sd:(f.sub||'')+', '+(f.comp||'')+', '+f.wt+'g/m2',se:'',s2:'',st:o.st||r.st||''};o.recs=[];}});try{renBR(BD._flt||'all');}catch(e){}}
  window._selData={f:f,label:r.label||''};
  var actInfo={rd:r.rd||'',name:'',comp:'',wt:''};
@@ -483,7 +484,7 @@ else if(c.key==='chemFin')h+='<td style="font-size:.78em">'+esc(r.chemFin||'')+(
 else if(c.key==='mechFin')h+='<td style="font-size:.78em">'+esc(r.mechFin||'')+(r.mechFin?finishGroupBadge(r.mechFin,'mech'):'')+'</td>';
 else h+='<td>'+(r[c.key]||'')+'</td>';
 });
-if(T.onAction){var _bm=ctx.indexOf('bsub')===0;var _ri2=_bm?parseInt(ctx.replace('bsub','')):0;h+='<td><div class="bg">'+(_bm?'<button class="btn bsm" style="background:var(--gn);color:#fff" onclick="selAndHist('+_ri2+','+i+')">Select</button>':'')+'<button class="btn bsm bp" onclick="cpC('+ci+')">Copy</button><button class="btn bsm bs" onclick="addHist('+ci+',\''+ctx+'\','+i+')" title="Add to history">+</button></div></td>';}
+if(T.onAction){var _bm=ctx.indexOf('bsub')===0;var _ri2=_bm?parseInt(ctx.replace('bsub','')):0;var _oi=_bm?T.data.indexOf(r):-1;h+='<td><div class="bg">'+(_bm&&_oi>=0?'<button class="btn bsm" style="background:var(--gn);color:#fff" onclick="selAndHist('+_ri2+','+_oi+')">Select</button>':'')+'<button class="btn bsm bp" onclick="cpC('+ci+')">Copy</button><button class="btn bsm bs" onclick="addHist('+ci+',\''+ctx+'\','+i+')" title="Add to history">+</button></div></td>';}
 h+='</tr>';
 });
 h+='</tbody></table>';
