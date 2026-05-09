@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>GIS FDT v4</title>
+<title>GIS FDT v4.31</title>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
@@ -99,7 +99,7 @@ focus{background:rgba(61,140,94,.1);box-shadow:0 0 0 2px var(--ac)}
 <body>
 
 <div class="hdr">
-<h1>GIS FDT <em>v4.30</em></h1>
+<h1>GIS FDT <em>v4.31</em></h1>
 <div class="sts">
 <span>Knit:<b id="sK">0</b></span><span>Woven:<b id="sW">0</b></span><span>Denim:<b id="sD">0</b></span><span>History:<b id="sH">0</b></span>
 </div></div>
@@ -412,12 +412,12 @@ function selAndHist(ri,rc){
  document.getElementById('mo').classList.add('sh');
  selRec(ri,rc);
  var oRD=r.rd;if(oRD&&BD&&BD.res){BD.res.forEach(function(o,oi){if(oi===ri)return;if(o.rd===oRD&&o.status==='recommend'){o.status='history';o.hm={or:oRD,sr:f.rd,sd:(f.sub||'')+', '+(f.comp||'')+', '+f.wt+'g/m2',se:'',s2:'',st:o.st||r.st||''};o.recs=[];}});try{renBR(BD._flt||'all');}catch(e){}}
- window._selData={f:f,label:r.label||''};
+ window._selData={f:f,label:r.label||'',_isMain:r._isMain||false};
  var actInfo={rd:r.rd||'',name:'',comp:'',wt:''};
  var cm=genC('s',f,actInfo);navigator.clipboard.writeText(cm).catch(function(){});
  toast('Comment copied! Fill Season and Save.','var(--bl)');
 }
-function addCR(rec){var lb=sv(rec.label||'').toLowerCase();if(lb&&(lb.indexOf('btm')>=0||lb.indexOf('裡布')>=0||/布料[2-9]/.test(rec.label||'')))return;if(_confRecs.some(function(x){return x.style===rec.style&&x.origRD===rec.origRD&&x.subRD===rec.subRD;}))return;_confRecs.push(rec);try{localStorage.setItem('gcr',JSON.stringify(_confRecs));}catch(e){}renCR();toast('Added to confirmed records');}
+function addCR(rec){if(_confRecs.some(function(x){return x.style===rec.style&&x.origRD===rec.origRD&&x.subRD===rec.subRD;}))return;_confRecs.push(rec);try{localStorage.setItem('gcr',JSON.stringify(_confRecs));}catch(e){}renCR();toast('Added to confirmed records');}
 function delCR(i){if(!confirm('Delete?'))return;_confRecs.splice(i,1);try{localStorage.setItem('gcr',JSON.stringify(_confRecs));}catch(e){}renCR();}
 function cpCR(i){var r=_confRecs[i];if(r&&r.comment)navigator.clipboard.writeText(r.comment).then(function(){toast('Copied!');});}
 function renCR(){
@@ -444,7 +444,34 @@ function renCR(){
  el.innerHTML=xh;
 }
 
-/* ═══ Filter/Sort Table System ═══ */
+/* ═══ togMain: ⭐主布 toggle ═══ */
+function togMain(ri){
+  var r=BD.res[ri];if(!r)return;
+  /* Toggle _isMain */
+  if(r._isMain){
+    /* 取消⭐ → 從查詢紀錄刪除 */
+    r._isMain=false;
+    var delIdx=_confRecs.findIndex(function(x){
+      return x.style===r.st&&x.origRD===(r.status==='actual'&&r.match?r.match.rd:r.rd||'');
+    });
+    if(delIdx>=0){_confRecs.splice(delIdx,1);try{localStorage.setItem('gcr',JSON.stringify(_confRecs));}catch(e){}renCR();}
+    toast('已取消⭐主布');
+  } else {
+    r._isMain=true;
+    if(r.status==='actual'&&r.match){
+      /* Actual → 立刻存查詢紀錄 */
+      var f=r.match;
+      var cm=genC('a',f);
+      addCR({style:r.st,season:r.se||'',origRD:f.rd,subRD:f.rd,subDesc:f.sub+', '+f.comp+', '+f.wt+'g/m2',comment:cm,dt:new Date().toISOString().split('T')[0],label:r.label||''});
+      toast('⭐ 已標記主布並存入查詢紀錄','var(--gn)');
+    } else {
+      /* Need Rec / History → 點 Select 後才存，這裡只標記 */
+      toast('⭐ 已標記主布，Select 確認後將存入查詢紀錄','var(--bl)');
+    }
+  }
+  renBR(BD._flt||'all');
+}
+
 window.onerror=function(msg,src,line,col,err){try{toast('JS Error: '+msg,'var(--rd)');console.error(err||msg);}catch(e){};};
 function sv(v){return (v===null||v===undefined)?'':String(v);}
 var _tbl={};
@@ -1079,7 +1106,7 @@ if(!GAS_URL){
   /* fallback: localStorage only */
   if(eIdx>=0)hist[eIdx]=r;else hist.push(r);
   save();upSt();renH();hiMo();toast('已儲存 (本機)');
-  if(window._selData){addCR({style:r.st,season:r.se,origRD:r.or,subRD:r.sr,subDesc:r.sd,comment:genC('s',window._selData.f,{rd:r.or||'',name:'',comp:'',wt:''}),dt:r.dt,label:window._selData.label||''});window._selData=null;}
+  if(window._selData&&window._selData._isMain){addCR({style:r.st,season:r.se,origRD:r.or,subRD:r.sr,subDesc:r.sd,comment:genC('s',window._selData.f,{rd:r.or||'',name:'',comp:'',wt:''}),dt:r.dt,label:window._selData.label||''});window._selData=null;}
   return;
 }
 var btn=document.querySelector('#mo .bp');if(btn){btn.disabled=true;btn.textContent='儲存中...';}
@@ -1092,7 +1119,7 @@ postHist(method,r,saveId)
       else{r.id=d.id;hist.push(r);}
       save();upSt();renH();hiMo();
       toast('✓ 已同步到共用 History','var(--gn)');
-  if(window._selData){addCR({style:r.st,season:r.se,origRD:r.or,subRD:r.sr,subDesc:r.sd,comment:genC('s',window._selData.f,{rd:r.or||'',name:'',comp:'',wt:''}),dt:r.dt,label:window._selData.label||''});window._selData=null;}
+  if(window._selData&&window._selData._isMain){addCR({style:r.st,season:r.se,origRD:r.or,subRD:r.sr,subDesc:r.sd,comment:genC('s',window._selData.f,{rd:r.or||'',name:'',comp:'',wt:''}),dt:r.dt,label:window._selData.label||''});window._selData=null;}
     } else {
       toast('儲存失敗: '+(d.error||'unknown'),'var(--rd)');
     }
@@ -1102,7 +1129,7 @@ postHist(method,r,saveId)
     if(eIdx>=0)hist[eIdx]=r;else hist.push(r);
     save();renH();hiMo();
     toast('已儲存 (離線)','var(--or)');
-  if(window._selData){addCR({style:r.st,season:r.se,origRD:r.or,subRD:r.sr,subDesc:r.sd,comment:genC('s',window._selData.f,{rd:r.or||'',name:'',comp:'',wt:''}),dt:r.dt,label:window._selData.label||''});window._selData=null;}
+  if(window._selData&&window._selData._isMain){addCR({style:r.st,season:r.se,origRD:r.or,subRD:r.sr,subDesc:r.sd,comment:genC('s',window._selData.f,{rd:r.or||'',name:'',comp:'',wt:''}),dt:r.dt,label:window._selData.label||''});window._selData=null;}
   })
   .finally(function(){
     if(btn){btn.disabled=false;btn.textContent='Save';}
@@ -1300,7 +1327,7 @@ function procB(){
 var flatRes=[];
 BD.mapped.forEach(function(row){
   var subs=procRowFabric(row);
-  subs.forEach(function(s){if(s.status!=='skip')flatRes.push(s);});
+  subs.forEach(function(s){if(s.status!=='skip'){if(s._isMain===undefined)s._isMain=false;flatRes.push(s);}});
 });
 BD.res=flatRes;
 document.getElementById('bA').textContent=BD.res.filter(function(r){return r.status==='actual';}).length;
@@ -1308,7 +1335,7 @@ document.getElementById('bH').textContent=BD.res.filter(function(r){return r.sta
 document.getElementById('bR').textContent=BD.res.filter(function(r){return r.status==='recommend';}).length;
 renBR('all');
 }
-function fltB(f){renBR(f);}
+function fltB(f){BD._flt=f;renBR(f);}
 
 function selRec(ri,rc){var r=BD.res[ri];if(!r||!r.recs[rc])return;var f=r.recs[rc],cm=genC('s',f);var btn=document.getElementById('cb'+ri);if(btn){var mainCi=parseInt(btn.getAttribute('data-ci'));_cmts[mainCi]=cm;cpC(mainCi);}document.getElementById('rt'+ri).innerHTML='<b style="color:var(--gn)">Selected: RD'+f.rd+'</b> | '+f.sub+' | '+(f.comp||'').substring(0,40)+' | '+f.wt+'g/m2';document.querySelectorAll('#dr'+ri+' .sub-tbl tr[data-rj]').forEach(function(tr){tr.classList.remove('sel');});var sel=document.querySelector('#dr'+ri+' .sub-tbl tr[data-rj="'+rc+'"]');if(sel)sel.classList.add('sel');}
 
@@ -1326,7 +1353,7 @@ else rt='<span style="color:var(--rd)">No match</span>';
 var mainCi=_cmts.length;if(cm)_cmts.push(cm);
 h+='<tr style="cursor:pointer" onclick="togD(\'dr'+i+'\')">';
 h+='<td>'+(i+1)+'</td><td><b style="font-size:1.05em">'+esc(r.st)+'</b></td><td>'+esc(r.ca)+'</td><td>'+r.rd+'</td>';
-h+='<td style="font-size:.85em;color:var(--t2)">'+(r.label?'<b style="color:var(--ac)">'+esc(r.label)+'</b>':'')+'</td>';
+h+='<td><button onclick="event.stopPropagation();togMain('+ri+')" style="border:none;background:none;cursor:pointer;font-size:1.2em;padding:2px 6px;border-radius:4px;transition:.2s" title="標記為主布">'+(r._isMain?'⭐':'☆')+'</button>'+(r.label?'<span style="font-size:.85em;color:var(--ac)"> '+esc(r.label)+'</span>':'')+' </td>';
 h+='<td><span class="bdg '+bg+'">'+sl+'</span></td>';
 h+='<td id="rt'+ri+'" style="font-size:.85em">'+rt+'</td>';
 h+='<td>'+(cm?'<button id="cb'+ri+'" data-ci="'+mainCi+'" class="btn bsm bp" onclick="event.stopPropagation();cpC('+mainCi+')">Copy</button>':'')+'</td>';
@@ -1342,7 +1369,7 @@ ep+='</tbody></table>';document.getElementById('epv').innerHTML=ep;
 
 /* ═══ Export ═══ */
 function exB(){var rows=BD.res.map(function(r){var j=r.status==='actual'?'Actual':r.status==='history'?'Historical Sub':'Recommended Sub';var aR='',sR='',br='',cm='',fi='';if(r.status==='actual'&&r.match){aR=r.match.rd;br=r.match.brand;cm=genC('a',r.match);fi=r.match.sub+', '+r.match.comp+', '+r.match.wt+'g/m2';}else if(r.status==='history'&&r.hm){sR=r.hm.sr;cm=genC('s',{rd:r.hm.sr,name:r.hm.sd,comp:'',wt:'',sub:''});fi=r.hm.sd;}else if(r.recs.length>0){var t=r.recs[0];sR=t.rd;br=t.brand;cm=genC('s',t);fi=t.sub+', '+t.comp+', '+t.wt+'g/m2';}return{Style:r.st,Category:r.ca,Season:r.se,Result:j,ActualRD:aR,SubRD:sR,Brand:br,Info:fi,Comment:cm};});var ws=XLSX.utils.json_to_sheet(rows);var wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Results');XLSX.writeFile(wb,'FDT_Results_'+new Date().toISOString().split('T')[0]+'.xlsx');toast('Exported!');}
-function cpAll(){var cmts=BD.res.filter(function(r){var lb=sv(r.label||'').toLowerCase();return !lb||(lb.indexOf('btm')<0&&lb.indexOf('裡布')<0&&!/布料[2-9]/.test(r.label||''));}).map(function(r){var cm='';if(r.status==='actual'&&r.match)cm=genC('a',r.match);else if(r.status==='history'&&r.hm)cm=genC('s',{rd:r.hm.sr,name:r.hm.sd,comp:'',wt:'',sub:''});else if(r.recs.length>0)cm=genC('s',r.recs[0]);return r.st+': '+cm;}).join('\n\n');navigator.clipboard.writeText(cmts).then(function(){toast('All copied!');});}
+function cpAll(){var cmts=BD.res.filter(function(r){return r._isMain!==false;}).map(function(r){var cm='';if(r.status==='actual'&&r.match)cm=genC('a',r.match);else if(r.status==='history'&&r.hm)cm=genC('s',{rd:r.hm.sr,name:r.hm.sd,comp:'',wt:'',sub:''});else if(r.recs.length>0)cm=genC('s',r.recs[0]);return r.st+': '+cm;}).join('\n\n');navigator.clipboard.writeText(cmts).then(function(){toast('All copied!');});}
 
 /* ═══ Data Sync ═══ */
 function exAll(){dlJ({fi:FI,hist:hist,tpl:{a:document.getElementById('tA').value,s:document.getElementById('tS').value},dt:new Date().toISOString()},'GIS_FDT_All_'+new Date().toISOString().split('T')[0]+'.json');}
