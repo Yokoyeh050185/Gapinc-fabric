@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>GIS FDT v4.31</title>
+<title>GIS FDT v4.33</title>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
@@ -99,7 +99,7 @@ focus{background:rgba(61,140,94,.1);box-shadow:0 0 0 2px var(--ac)}
 <body>
 
 <div class="hdr">
-<h1>GIS FDT <em>v4.31</em></h1>
+<h1>GIS FDT <em>v4.33</em></h1>
 <div class="sts">
 <span>Knit:<b id="sK">0</b></span><span>Woven:<b id="sW">0</b></span><span>Denim:<b id="sD">0</b></span><span>History:<b id="sH">0</b></span>
 </div></div>
@@ -178,8 +178,16 @@ focus{background:rgba(61,140,94,.1);box-shadow:0 0 0 2px var(--ac)}
 </div></div>
 <div class="tp" id="p3">
 <div class="cd"><h3>📋 查詢紀錄（組員複製 Comment）</h3>
-<p style="font-size:.82em;color:var(--t2);margin-bottom:12px">Excel查詢 Select確認後的結果。組員輸入款號即可搜尋。</p>
-<input style="width:100%;padding:10px 14px;margin-bottom:12px;border-radius:8px;background:var(--bg);border:1px solid var(--bd);color:var(--tx);font-size:.95em" id="crQ" placeholder="輸入款號或 RD..." oninput="renCR()">
+<p style="font-size:.82em;color:var(--t2);margin-bottom:8px">Excel查詢 ⭐主布確認後的結果。組員輸入款號即可搜尋。</p>
+<div id="crLocalWarn" style="display:none;background:#fff8e1;border:1px solid #ffc107;border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:.85em;color:#7a5a00">
+  ⚠️ 偵測到本機有 <b id="crLocalCount">0</b> 筆舊紀錄尚未上傳到雲端。
+  <button class="btn bp bsm" style="margin-left:10px" onclick="uploadLocalCR()">一鍵上傳到雲端</button>
+  <button class="btn bs bsm" style="margin-left:6px" onclick="dismissLocalWarn()">略過</button>
+</div>
+<div style="display:flex;gap:8px;align-items:center;margin-bottom:12px">
+<input style="flex:1;padding:10px 14px;border-radius:8px;background:var(--bg);border:1px solid var(--bd);color:var(--tx);font-size:.95em" id="crQ" placeholder="輸入款號或 RD..." oninput="renCR()">
+<button class="btn bs" onclick="loadCR()" style="white-space:nowrap;font-size:.82em" title="重新從 Google Sheets 載入">&#x21bb; 同步</button>
+</div>
 <div class="stbl" id="crTbl"></div>
 </div></div>
 <div class="tp" id="p2">
@@ -417,9 +425,124 @@ function selAndHist(ri,rc){
  var cm=genC('s',f,actInfo);navigator.clipboard.writeText(cm).catch(function(){});
  toast('Comment copied! Fill Season and Save.','var(--bl)');
 }
-function addCR(rec){if(_confRecs.some(function(x){return x.style===rec.style&&x.origRD===rec.origRD&&x.subRD===rec.subRD;}))return;_confRecs.push(rec);try{localStorage.setItem('gcr',JSON.stringify(_confRecs));}catch(e){}renCR();toast('Added to confirmed records');}
-function delCR(i){if(!confirm('Delete?'))return;_confRecs.splice(i,1);try{localStorage.setItem('gcr',JSON.stringify(_confRecs));}catch(e){}renCR();}
+/* ═══ 查詢紀錄 CR — GAS 共享同步 ═══ */
+var CR_LOADING=false;
+
+function postCR(action,rec,id){
+  var body=Object.assign({},rec,{action:action,id:id||rec.id||'',sheet:'CR',data:Object.assign({},rec,{id:id||rec.id||''})});
+  return fetch(GAS_URL,{method:'POST',body:JSON.stringify(body)}).then(function(res){return res.json();});
+}
+
+function loadCR(){
+  if(!GAS_URL)return;
+  if(CR_LOADING)return;
+  CR_LOADING=true;
+  fetch(GAS_URL+'?action=getCR&v='+Date.now(),{cache:'no-store'})
+    .then(function(r){return r.json();})
+    .then(function(d){
+      var rows=[];
+      if(Array.isArray(d))rows=d;
+      else if(d&&Array.isArray(d.data))rows=d.data;
+      else if(d&&Array.isArray(d.rows))rows=d.rows;
+      if(rows.length){
+        _confRecs=rows;
+        try{localStorage.setItem('gcr',JSON.stringify(_confRecs));}catch(e){}
+        renCR();
+        toast('查詢紀錄已同步 ('+_confRecs.length+' 筆)','var(--bl)');
+      }
+    })
+    .catch(function(){/* silent — use local cache */})
+    .finally(function(){CR_LOADING=false;});
+}
+
+function addCR(rec){
+  if(_confRecs.some(function(x){return x.style===rec.style&&x.origRD===rec.origRD&&x.subRD===rec.subRD;}))return;
+  rec.id=rec.id||('cr_'+Date.now()+'_'+Math.random().toString(36).slice(2,6));
+  _confRecs.push(rec);
+  try{localStorage.setItem('gcr',JSON.stringify(_confRecs));}catch(e){}
+  renCR();
+  /* Sync to GAS */
+  if(GAS_URL){
+    postCR('addCR',rec,rec.id)
+      .then(function(d){if(d&&d.id)rec.id=d.id;})
+      .catch(function(){/* offline ok */});
+  }
+  toast('⭐ 已加入查詢紀錄','var(--gn)');
+}
+
+function delCR(i){
+  if(!confirm('刪除此查詢紀錄？'))return;
+  var rec=_confRecs[i];
+  _confRecs.splice(i,1);
+  try{localStorage.setItem('gcr',JSON.stringify(_confRecs));}catch(e){}
+  renCR();
+  if(GAS_URL&&rec&&rec.id){
+    fetch(GAS_URL+'?action=delCR&id='+encodeURIComponent(rec.id))
+      .catch(function(){});
+  }
+}
+
 function cpCR(i){var r=_confRecs[i];if(r&&r.comment)navigator.clipboard.writeText(r.comment).then(function(){toast('Copied!');});}
+
+/* 一鍵上傳本機舊紀錄到 GAS */
+function uploadLocalCR(){
+  if(!GAS_URL){toast('請先設定 Apps Script URL','var(--or)');return;}
+  var local=[];
+  try{var raw=localStorage.getItem('gcr_local_backup');if(raw)local=JSON.parse(raw);}catch(e){}
+  if(!local.length){
+    /* fallback: 若 gcr_local_backup 不存在，用目前 _confRecs 中沒有 id 的 */
+    local=_confRecs.filter(function(r){return !r.id||r.id.indexOf('cr_')!==0;});
+  }
+  if(!local.length){toast('沒有待上傳的本機紀錄','var(--or)');return;}
+  var btn=document.querySelector('#crLocalWarn .bp');
+  if(btn){btn.disabled=true;btn.textContent='上傳中...';}
+  var done=0,total=local.length;
+  var promises=local.map(function(rec){
+    rec.id=rec.id||('cr_'+Date.now()+'_'+Math.random().toString(36).slice(2,6));
+    return postCR('addCR',rec,rec.id)
+      .then(function(d){if(d&&d.id)rec.id=d.id;done++;})
+      .catch(function(){done++;});
+  });
+  Promise.all(promises).then(function(){
+    /* merge into _confRecs, dedup */
+    local.forEach(function(rec){
+      if(!_confRecs.some(function(x){return x.style===rec.style&&x.origRD===rec.origRD&&x.subRD===rec.subRD;})){
+        _confRecs.push(rec);
+      }
+    });
+    try{localStorage.setItem('gcr',JSON.stringify(_confRecs));}catch(e){}
+    try{localStorage.removeItem('gcr_local_backup');}catch(e){}
+    document.getElementById('crLocalWarn').style.display='none';
+    renCR();
+    toast('✅ 已上傳 '+done+' 筆到雲端！','var(--gn)');
+    if(btn){btn.disabled=false;btn.textContent='一鍵上傳到雲端';}
+  });
+}
+
+function dismissLocalWarn(){
+  document.getElementById('crLocalWarn').style.display='none';
+  try{localStorage.removeItem('gcr_local_backup');}catch(e){}
+}
+
+/* 偵測本機是否有舊資料（loadCR 之前就存在的）*/
+function checkLocalCRBackup(){
+  try{
+    var raw=localStorage.getItem('gcr');
+    if(!raw)return;
+    var local=JSON.parse(raw);
+    /* 只有「沒有 id」或「id 不是 cr_ 格式」的才算舊資料 */
+    var oldRecs=local.filter(function(r){return !r.id||r.id.indexOf('cr_')!==0;});
+    if(oldRecs.length&&GAS_URL){
+      /* backup for upload */
+      localStorage.setItem('gcr_local_backup',JSON.stringify(oldRecs));
+      var w=document.getElementById('crLocalWarn');
+      var n=document.getElementById('crLocalCount');
+      if(w&&n){n.textContent=oldRecs.length;w.style.display='block';}
+    }
+  }catch(e){}
+}
+
+
 function renCR(){
  var el=document.getElementById('crTbl');if(!el)return;
  var q=sv((document.getElementById('crQ')||{}).value).toLowerCase();
@@ -883,6 +1006,7 @@ toast('Comment copied with Actual info! Fill Season to save.','var(--bl)');
 
 function init(){
 try{var cr=localStorage.getItem('gcr');if(cr)_confRecs=JSON.parse(cr);}catch(e){}
+checkLocalCRBackup();
 try{fetch('local_lib.json').then(function(r){return r.json();}).then(function(j){if(j.rds){_localLib=j.rds;var s2=document.getElementById('llSt');if(s2)s2.textContent='✅ '+_localLib.length+' RDs ('+sv(j.updated||'')+')';}}).catch(function(){});}catch(e){}
 
 /* 1. Load fabric-data.json from same folder (GitHub Pages) */
@@ -910,7 +1034,7 @@ try{
   var g=localStorage.getItem('gasUrl');if(g)GAS_URL=g;
   var gEl2=document.getElementById('gasUrl');if(gEl2&&GAS_URL)gEl2.value=GAS_URL;
   var t=localStorage.getItem('gtl');if(t){var o=JSON.parse(t);document.getElementById('tA').value=o.a||document.getElementById('tA').value;document.getElementById('tS').value=o.s||document.getElementById('tS').value;}
-  if(GAS_URL)loadHist();
+  if(GAS_URL){loadHist();loadCR();}
 }catch(e){}
 renH();
 }
