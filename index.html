@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>GIS FDT v4.37</title>
+<title>GIS FDT v4.38</title>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
@@ -99,7 +99,7 @@ focus{background:rgba(61,140,94,.1);box-shadow:0 0 0 2px var(--ac)}
 <body>
 
 <div class="hdr">
-<h1>GIS FDT <em>v4.37</em></h1>
+<h1>GIS FDT <em>v4.38</em></h1>
 <div class="sts">
 <span>Knit:<b id="sK">0</b></span><span>Woven:<b id="sW">0</b></span><span>Denim:<b id="sD">0</b></span><span>History:<b id="sH">0</b></span>
 </div></div>
@@ -446,28 +446,23 @@ function loadCR(){
       else if(d&&Array.isArray(d.data))rows=d.data;
       else if(d&&Array.isArray(d.rows))rows=d.rows;
       if(rows.length){
-        /* Merge: GAS 資料為主，但不蓋掉本機已有的紀錄 */
-        rows.forEach(function(remote){
-          var idx=_confRecs.findIndex(function(x){
-            return (remote.id&&x.id&&x.id===remote.id)||
-                   (x.style===remote.style&&x.origRD===remote.origRD&&x.subRD===remote.subRD);
-          });
-          if(idx>=0){
-            /* 更新現有紀錄，確保 id 有值 */
-            _confRecs[idx]=Object.assign({},_confRecs[idx],remote);
-          }else{
-            _confRecs.push(remote);
-          }
-        });
+        /* 雲端有資料 → 直接以雲端為準，完全取代本機 */
+        _confRecs=rows;
         try{localStorage.setItem('gcr',JSON.stringify(_confRecs));}catch(e){}
+        /* 標記已完成遷移，不再偵測舊資料 */
+        try{localStorage.setItem('gcr_migrated','1');}catch(e){}
+        try{localStorage.removeItem('gcr_local_backup');}catch(e){}
+        document.getElementById('crLocalWarn').style.display='none';
         renCR();
         toast('查詢紀錄已同步 ('+_confRecs.length+' 筆)','var(--bl)');
+      } else {
+        /* 雲端沒資料 → 才偵測本機是否有待上傳的舊資料 */
+        checkLocalCRBackup();
       }
     })
     .catch(function(){/* silent — use local cache */})
     .finally(function(){CR_LOADING=false;});
 }
-
 function addCR(rec){
   if(_confRecs.some(function(x){return x.style===rec.style&&x.origRD===rec.origRD&&x.subRD===rec.subRD;}))return;
   rec.id=rec.id||('cr_'+Date.now()+'_'+Math.random().toString(36).slice(2,6));
@@ -1061,7 +1056,7 @@ toast('Comment copied with Actual info! Fill Season to save.','var(--bl)');
 
 function init(){
 try{var cr=localStorage.getItem('gcr');if(cr)_confRecs=JSON.parse(cr);}catch(e){}
-checkLocalCRBackup();
+/* 不在這裡呼叫 checkLocalCRBackup，改在 loadCR 完成後才偵測 */
 try{fetch('local_lib.json').then(function(r){return r.json();}).then(function(j){if(j.rds){_localLib=j.rds;var s2=document.getElementById('llSt');if(s2)s2.textContent='✅ '+_localLib.length+' RDs ('+sv(j.updated||'')+')';}}).catch(function(){});}catch(e){}
 
 /* 1. Load fabric-data.json from same folder (GitHub Pages) */
