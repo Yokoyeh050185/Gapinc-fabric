@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>GIS FDT v4.35</title>
+<title>GIS FDT v4.36</title>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
@@ -99,7 +99,7 @@ focus{background:rgba(61,140,94,.1);box-shadow:0 0 0 2px var(--ac)}
 <body>
 
 <div class="hdr">
-<h1>GIS FDT <em>v4.35</em></h1>
+<h1>GIS FDT <em>v4.36</em></h1>
 <div class="sts">
 <span>Knit:<b id="sK">0</b></span><span>Woven:<b id="sW">0</b></span><span>Denim:<b id="sD">0</b></span><span>History:<b id="sH">0</b></span>
 </div></div>
@@ -489,7 +489,7 @@ function cpCR(i){var r=_confRecs[i];if(r&&r.comment)navigator.clipboard.writeTex
 function uploadLocalCR(){
   if(!GAS_URL){toast('請先設定 Apps Script URL','var(--or)');return;}
   /* 找出所有沒有合法 id 的紀錄 */
-  var local=_confRecs.filter(function(r){return !r.id||r.id.indexOf('cr_')!==0;});
+  var local=_confRecs.filter(function(r){return !r.id||r.id===''||r.id==='undefined';});
   if(!local.length){
     document.getElementById('crLocalWarn').style.display='none';
     toast('沒有待上傳的本機紀錄','var(--or)');
@@ -521,7 +521,7 @@ function uploadLocalCR(){
 function dismissLocalWarn(){
   /* 略過上傳，但幫每筆補 id，避免下次重新偵測到 */
   _confRecs.forEach(function(r){
-    if(!r.id||r.id.indexOf('cr_')!==0){
+    if(!r.id||r.id===''||r.id==='undefined'){
       r.id='cr_'+Date.now()+'_'+Math.random().toString(36).slice(2,6);
     }
   });
@@ -542,7 +542,7 @@ function forceUploadAllCR(){
   var done=0,fail=0;
   /* 先幫每筆補 id */
   _confRecs.forEach(function(r){
-    if(!r.id||r.id.indexOf('cr_')!==0){
+    if(!r.id||r.id===''||r.id==='undefined'){
       r.id='cr_'+Date.now()+'_'+Math.random().toString(36).slice(2,6);
     }
   });
@@ -568,10 +568,9 @@ function checkLocalCRBackup(){
     var raw=localStorage.getItem('gcr');
     if(!raw)return;
     var local=JSON.parse(raw);
-    /* 只有「沒有 id」或「id 不是 cr_ 格式」的才算舊資料 */
-    var oldRecs=local.filter(function(r){return !r.id||r.id.indexOf('cr_')!==0;});
+    /* 只有完全沒有 id 的才算舊資料（cr_ 或 UUID 格式都算已處理）*/
+    var oldRecs=local.filter(function(r){return !r.id||r.id===''||r.id==='undefined';});
     if(oldRecs.length&&GAS_URL){
-      /* backup for upload */
       localStorage.setItem('gcr_local_backup',JSON.stringify(oldRecs));
       var w=document.getElementById('crLocalWarn');
       var n=document.getElementById('crLocalCount');
