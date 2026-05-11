@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>GIS FDT v4.33</title>
+<title>GIS FDT v4.34</title>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
@@ -99,7 +99,7 @@ focus{background:rgba(61,140,94,.1);box-shadow:0 0 0 2px var(--ac)}
 <body>
 
 <div class="hdr">
-<h1>GIS FDT <em>v4.33</em></h1>
+<h1>GIS FDT <em>v4.34</em></h1>
 <div class="sts">
 <span>Knit:<b id="sK">0</b></span><span>Woven:<b id="sW">0</b></span><span>Denim:<b id="sD">0</b></span><span>History:<b id="sH">0</b></span>
 </div></div>
@@ -487,29 +487,27 @@ function cpCR(i){var r=_confRecs[i];if(r&&r.comment)navigator.clipboard.writeTex
 /* 一鍵上傳本機舊紀錄到 GAS */
 function uploadLocalCR(){
   if(!GAS_URL){toast('請先設定 Apps Script URL','var(--or)');return;}
-  var local=[];
-  try{var raw=localStorage.getItem('gcr_local_backup');if(raw)local=JSON.parse(raw);}catch(e){}
+  /* 找出所有沒有合法 id 的紀錄 */
+  var local=_confRecs.filter(function(r){return !r.id||r.id.indexOf('cr_')!==0;});
   if(!local.length){
-    /* fallback: 若 gcr_local_backup 不存在，用目前 _confRecs 中沒有 id 的 */
-    local=_confRecs.filter(function(r){return !r.id||r.id.indexOf('cr_')!==0;});
+    document.getElementById('crLocalWarn').style.display='none';
+    toast('沒有待上傳的本機紀錄','var(--or)');
+    return;
   }
-  if(!local.length){toast('沒有待上傳的本機紀錄','var(--or)');return;}
   var btn=document.querySelector('#crLocalWarn .bp');
   if(btn){btn.disabled=true;btn.textContent='上傳中...';}
-  var done=0,total=local.length;
+  var done=0;
+  /* 直接在 _confRecs 原本的物件上賦 id，這樣存回去就有 id 了 */
   var promises=local.map(function(rec){
-    rec.id=rec.id||('cr_'+Date.now()+'_'+Math.random().toString(36).slice(2,6));
+    if(!rec.id||rec.id.indexOf('cr_')!==0){
+      rec.id='cr_'+Date.now()+'_'+Math.random().toString(36).slice(2,6);
+    }
     return postCR('addCR',rec,rec.id)
       .then(function(d){if(d&&d.id)rec.id=d.id;done++;})
       .catch(function(){done++;});
   });
   Promise.all(promises).then(function(){
-    /* merge into _confRecs, dedup */
-    local.forEach(function(rec){
-      if(!_confRecs.some(function(x){return x.style===rec.style&&x.origRD===rec.origRD&&x.subRD===rec.subRD;})){
-        _confRecs.push(rec);
-      }
-    });
+    /* 現在 _confRecs 裡每筆都有 id 了，直接存回 */
     try{localStorage.setItem('gcr',JSON.stringify(_confRecs));}catch(e){}
     try{localStorage.removeItem('gcr_local_backup');}catch(e){}
     document.getElementById('crLocalWarn').style.display='none';
@@ -520,8 +518,15 @@ function uploadLocalCR(){
 }
 
 function dismissLocalWarn(){
-  document.getElementById('crLocalWarn').style.display='none';
+  /* 略過上傳，但幫每筆補 id，避免下次重新偵測到 */
+  _confRecs.forEach(function(r){
+    if(!r.id||r.id.indexOf('cr_')!==0){
+      r.id='cr_'+Date.now()+'_'+Math.random().toString(36).slice(2,6);
+    }
+  });
+  try{localStorage.setItem('gcr',JSON.stringify(_confRecs));}catch(e){}
   try{localStorage.removeItem('gcr_local_backup');}catch(e){}
+  document.getElementById('crLocalWarn').style.display='none';
 }
 
 /* 偵測本機是否有舊資料（loadCR 之前就存在的）*/
