@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>GIS FDT v4.36</title>
+<title>GIS FDT v4.37</title>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
@@ -99,7 +99,7 @@ focus{background:rgba(61,140,94,.1);box-shadow:0 0 0 2px var(--ac)}
 <body>
 
 <div class="hdr">
-<h1>GIS FDT <em>v4.36</em></h1>
+<h1>GIS FDT <em>v4.37</em></h1>
 <div class="sts">
 <span>Knit:<b id="sK">0</b></span><span>Woven:<b id="sW">0</b></span><span>Denim:<b id="sD">0</b></span><span>History:<b id="sH">0</b></span>
 </div></div>
@@ -446,7 +446,19 @@ function loadCR(){
       else if(d&&Array.isArray(d.data))rows=d.data;
       else if(d&&Array.isArray(d.rows))rows=d.rows;
       if(rows.length){
-        _confRecs=rows;
+        /* Merge: GAS 資料為主，但不蓋掉本機已有的紀錄 */
+        rows.forEach(function(remote){
+          var idx=_confRecs.findIndex(function(x){
+            return (remote.id&&x.id&&x.id===remote.id)||
+                   (x.style===remote.style&&x.origRD===remote.origRD&&x.subRD===remote.subRD);
+          });
+          if(idx>=0){
+            /* 更新現有紀錄，確保 id 有值 */
+            _confRecs[idx]=Object.assign({},_confRecs[idx],remote);
+          }else{
+            _confRecs.push(remote);
+          }
+        });
         try{localStorage.setItem('gcr',JSON.stringify(_confRecs));}catch(e){}
         renCR();
         toast('查詢紀錄已同步 ('+_confRecs.length+' 筆)','var(--bl)');
@@ -527,6 +539,7 @@ function dismissLocalWarn(){
   });
   try{localStorage.setItem('gcr',JSON.stringify(_confRecs));}catch(e){}
   try{localStorage.removeItem('gcr_local_backup');}catch(e){}
+  try{localStorage.setItem('gcr_migrated','1');}catch(e){}
   document.getElementById('crLocalWarn').style.display='none';
 }
 
@@ -555,6 +568,7 @@ function forceUploadAllCR(){
   Promise.all(promises).then(function(){
     try{localStorage.setItem('gcr',JSON.stringify(_confRecs));}catch(e){}
     try{localStorage.removeItem('gcr_local_backup');}catch(e){}
+    try{localStorage.setItem('gcr_migrated','1');}catch(e){}
     document.getElementById('crLocalWarn').style.display='none';
     renCR();
     var msg=fail>0?'上傳完成（成功'+done+'筆，失敗'+fail+'筆）':'✅ 全部 '+done+' 筆已上傳到雲端！';
@@ -562,19 +576,23 @@ function forceUploadAllCR(){
   });
 }
 
-/* 偵測本機是否有舊資料（loadCR 之前就存在的）*/
+/* 偵測本機是否有舊資料 — 只執行一次 */
 function checkLocalCRBackup(){
+  /* 如果已經做過遷移就跳過 */
+  try{if(localStorage.getItem('gcr_migrated')==='1')return;}catch(e){}
   try{
     var raw=localStorage.getItem('gcr');
     if(!raw)return;
     var local=JSON.parse(raw);
-    /* 只有完全沒有 id 的才算舊資料（cr_ 或 UUID 格式都算已處理）*/
     var oldRecs=local.filter(function(r){return !r.id||r.id===''||r.id==='undefined';});
     if(oldRecs.length&&GAS_URL){
       localStorage.setItem('gcr_local_backup',JSON.stringify(oldRecs));
       var w=document.getElementById('crLocalWarn');
       var n=document.getElementById('crLocalCount');
       if(w&&n){n.textContent=oldRecs.length;w.style.display='block';}
+    }else{
+      /* 沒有舊資料，標記為已完成 */
+      try{localStorage.setItem('gcr_migrated','1');}catch(e){}
     }
   }catch(e){}
 }
