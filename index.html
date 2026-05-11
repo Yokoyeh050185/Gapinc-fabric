@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>GIS FDT v4.34</title>
+<title>GIS FDT v4.35</title>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
@@ -99,7 +99,7 @@ focus{background:rgba(61,140,94,.1);box-shadow:0 0 0 2px var(--ac)}
 <body>
 
 <div class="hdr">
-<h1>GIS FDT <em>v4.34</em></h1>
+<h1>GIS FDT <em>v4.35</em></h1>
 <div class="sts">
 <span>Knit:<b id="sK">0</b></span><span>Woven:<b id="sW">0</b></span><span>Denim:<b id="sD">0</b></span><span>History:<b id="sH">0</b></span>
 </div></div>
@@ -187,6 +187,7 @@ focus{background:rgba(61,140,94,.1);box-shadow:0 0 0 2px var(--ac)}
 <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px">
 <input style="flex:1;padding:10px 14px;border-radius:8px;background:var(--bg);border:1px solid var(--bd);color:var(--tx);font-size:.95em" id="crQ" placeholder="輸入款號或 RD..." oninput="renCR()">
 <button class="btn bs" onclick="loadCR()" style="white-space:nowrap;font-size:.82em" title="重新從 Google Sheets 載入">&#x21bb; 同步</button>
+<button class="btn bs" onclick="forceUploadAllCR()" style="white-space:nowrap;font-size:.82em;color:var(--or);border-color:var(--or)" title="強制把本機所有紀錄重新上傳到雲端">&#x2B06; 重新上傳</button>
 </div>
 <div class="stbl" id="crTbl"></div>
 </div></div>
@@ -527,6 +528,38 @@ function dismissLocalWarn(){
   try{localStorage.setItem('gcr',JSON.stringify(_confRecs));}catch(e){}
   try{localStorage.removeItem('gcr_local_backup');}catch(e){}
   document.getElementById('crLocalWarn').style.display='none';
+}
+
+/* 強制把本機所有紀錄重新上傳（不管有沒有 id）*/
+function forceUploadAllCR(){
+  if(!GAS_URL){toast('請先設定 Apps Script URL','var(--or)');return;}
+  if(!_confRecs.length){
+    /* 試著從 localStorage 重新讀 */
+    try{var raw=localStorage.getItem('gcr');if(raw)_confRecs=JSON.parse(raw);}catch(e){}
+  }
+  if(!_confRecs.length){toast('本機沒有任何查詢紀錄','var(--or)');return;}
+  if(!confirm('將本機 '+_confRecs.length+' 筆紀錄全部上傳到雲端，確定？'))return;
+  var done=0,fail=0;
+  /* 先幫每筆補 id */
+  _confRecs.forEach(function(r){
+    if(!r.id||r.id.indexOf('cr_')!==0){
+      r.id='cr_'+Date.now()+'_'+Math.random().toString(36).slice(2,6);
+    }
+  });
+  var promises=_confRecs.map(function(rec){
+    return postCR('addCR',rec,rec.id)
+      .then(function(d){if(d&&d.id)rec.id=d.id;done++;})
+      .catch(function(){fail++;});
+  });
+  toast('上傳中，請稍候...','var(--bl)');
+  Promise.all(promises).then(function(){
+    try{localStorage.setItem('gcr',JSON.stringify(_confRecs));}catch(e){}
+    try{localStorage.removeItem('gcr_local_backup');}catch(e){}
+    document.getElementById('crLocalWarn').style.display='none';
+    renCR();
+    var msg=fail>0?'上傳完成（成功'+done+'筆，失敗'+fail+'筆）':'✅ 全部 '+done+' 筆已上傳到雲端！';
+    toast(msg,fail>0?'var(--or)':'var(--gn)');
+  });
 }
 
 /* 偵測本機是否有舊資料（loadCR 之前就存在的）*/
